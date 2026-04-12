@@ -1,0 +1,115 @@
+layout {
+    tab name="Infrastructure" {
+        pane {
+            command "docker"
+            args "compose" "-f" "tooling/infra/docker-compose.yml" "up"
+        }
+    }
+
+    tab name="Services" {
+        pane split_direction="vertical" {
+            pane split_direction="horizontal" {
+                pane {
+                    name "auth-api :3001"
+                    cwd "apps/auth-api"
+                    command "pnpm"
+                    args "dev"
+                }
+                pane {
+                    name "tms-api :3002"
+                    cwd "apps/tms-api"
+                    command "pnpm"
+                    args "dev"
+                }
+                pane {
+                    name "identity-api :3003"
+                    cwd "apps/identity-api"
+                    command "pnpm"
+                    args "dev"
+                }
+            }
+            pane split_direction="horizontal" {
+                pane {
+                    name "workflows-api :3004"
+                    cwd "apps/workflows-api"
+                    command "pnpm"
+                    args "dev"
+                }
+                pane {
+                    name "scenarios-api :3005"
+                    cwd "apps/scenarios-api"
+                    command "pnpm"
+                    args "dev"
+                }
+                pane {
+                    name "dashboard-api :3006"
+                    cwd "apps/dashboard-api"
+                    command "pnpm"
+                    args "dev"
+                }
+            }
+        }
+    }
+
+    tab name="Frontend" {
+        pane split_direction="vertical" {
+            pane {
+                name "dashboard :3000"
+                cwd "apps/dashboard"
+                command "pnpm"
+                args "dev"
+            }
+            pane {
+                name "widget :3007"
+                cwd "apps/widget"
+                command "pnpm"
+                args "dev"
+            }
+        }
+    }
+
+    tab name="DB Studios" {
+        pane split_direction="vertical" {
+            pane split_direction="horizontal" {
+                pane {
+                    name "auth-api studio"
+                    cwd "apps/auth-api"
+                    command "pnpm"
+                    args "db:studio"
+                }
+                pane {
+                    name "identity-api studio"
+                    cwd "apps/identity-api"
+                    command "pnpm"
+                    args "db:studio"
+                }
+                pane {
+                    name "workflows-api studio"
+                    cwd "apps/workflows-api"
+                    command "pnpm"
+                    args "db:studio"
+                }
+            }
+            pane split_direction="horizontal" {
+                pane {
+                    name "tms-api studio"
+                    cwd "apps/tms-api"
+                    command "pnpm"
+                    args "db:studio"
+                }
+                pane {
+                    name "scenarios-api studio"
+                    cwd "apps/scenarios-api"
+                    command "pnpm"
+                    args "db:studio"
+                }
+                pane {
+                    name "dashboard-api studio"
+                    cwd "apps/dashboard-api"
+                    command "pnpm"
+                    args "db:studio"
+                }
+            }
+        }
+    }
+}

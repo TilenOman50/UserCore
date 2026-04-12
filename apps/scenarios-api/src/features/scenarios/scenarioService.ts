@@ -1,0 +1,122 @@
+import { HTTPException } from "hono/http-exception";
+
+import type { Logger } from "@usercore/logger";
+import type { RabbitMQClient } from "@usercore/rabbitmq";
+import { EVENTS } from "@usercore/shared-types";
+
+import type { ScenarioActionTable, ScenarioRuleTable } from "../../db/schema.db";
+import type { RuleEngineService } from "../ruleEngine/ruleEngineService";
+import type { ScenarioRepository } from "./scenarioRepository";
+
+type UserData = Record<string, string | number | boolean | null | undefined>;
+
+export const createScenarioService = (props: {
+  scenarioRepository: ScenarioRepository;
+  ruleEngineService: RuleEngineService;
+  rabbitMQ: RabbitMQClient;
+  logger: Logger;
+}) => {
+  const { scenarioRepository, ruleEngineService, rabbitMQ, logger } = props;
+
+  const createScenario = async (data: {
+    workspaceId: string;
+    name: string;
+    description?: string;
+  }) => {
+    logger.info({ msg: "Creating scenario", name: data.name });
+    return scenarioRepository.create(data);
+  };
+
+  const getScenario = async (id: string) => {
+    const scenario = await scenarioRepository.findById(id);
+    if (!scenario) throw new HTTPException(404, { message: "Scenario not found" });
+    return scenario;
+  };
+
+  const listScenarios = async (workspaceId: string) => {
+    return scenarioRepository.findByWorkspaceId(workspaceId);
+  };
+
+  const updateScenario = async (id: string, data: { name?: string; description?: string; isActive?: boolean }) => {
+    return scenarioRepository.update(id, {
+      ...data,
+      isActive: data.isActive !== undefined ? String(data.isActive) : undefined,
+    });
+  };
+
+  const deleteScenario = async (id: string) => {
+    return scenarioRepository.deleteById(id);
+  };
+
+  const addRule = async (data: {
+    scenarioId: string;
+    field: string;
+    operator: typeof ScenarioRuleTable.$inferInsert.operator;
+    value: string;
+  }) => {
+    return scenarioRepository.createRule(data);
+  };
+
+  const removeRule = async (ruleId: string) => {
+    return scenarioRepository.deleteRule(ruleId);
+  };
+
+  const addAction = async (data: {
+    scenarioId: string;
+    actionType: typeof ScenarioActionTable.$inferInsert.actionType;
+    config?: Record<string, unknown>;
+  }) => {
+    return scenarioRepository.createAction(data);
+  };
+
+  /**
+   * Evaluate all active scenarios for a workspace against the given user data.
+   * Triggered when a KYC session is submitted or a profile is updated.
+   */
+  const evaluateScenariosForUser = async (props: {
+    workspaceId: string;
+    userId: string;
+    userData: UserData;
+  }) => {
+    const scenarios = await scenarioRepository.findActiveByWorkspaceId(props.workspaceId);
+
+    for (const scenario of scenarios) {
+      if (scenario.isActive !== "true") continue;
+
+      const rules = await scenarioRepository.findRulesByScenarioId(scenario.id);
+      const triggered = ruleEngineService.evaluateScenario(rules, props.userData);
+
+      if (triggered) {
+        const actions = await scenarioRepository.findActionsByScenarioId(scenario.id);
+
+        for (const action of actions) {
+          await rabbitMQ.publish({
+            exchange: "usercore.events",
+            routingKey: EVENTS.SCENARIO_TRIGGERED,
+            payload: {
+              scenarioId: scenario.id,
+              userId: props.userId,
+              workspaceId: props.workspaceId,
+              actionType: action.actionType,
+            },
+          });
+          logger.info({ msg: "Scenario triggered", scenarioId: scenario.id, action: action.actionType });
+        }
+      }
+    }
+  };
+
+  return {
+    createScenario,
+    getScenario,
+    listScenarios,
+    updateScenario,
+    deleteScenario,
+    addRule,
+    removeRule,
+    addAction,
+    evaluateScenariosForUser,
+  };
+};
+
+export type ScenarioService = ReturnType<typeof createScenarioService>;

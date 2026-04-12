@@ -1,0 +1,11 @@
+node_modules
+.turbo
+build
+dist
+.next
+*.env
+.env
+.env.*
+!.env.example
+drizzle/*.sql
+*.tsbuildinfo

@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "build",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "incremental": true,
+    "module": "esnext",
+    "sourceMap": true,
+    "moduleResolution": "Node",
+    "target": "ESNext",
+    "esModuleInterop": true,
+    "types": ["bun-types"]
+  },
+  "include": ["src", "scripts", "drizzle.config.ts"],
+  "exclude": ["node_modules", "build"]
+}
