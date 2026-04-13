@@ -1,12 +1,21 @@
 layout {
     tab name="Infrastructure" {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
         pane {
             command "docker"
             args "compose" "-f" "tooling/infra/docker-compose.yml" "up"
         }
+        pane size=2 borderless=true {
+            plugin location="zellij:status-bar"
+        }
     }
 
     tab name="Services" {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
         pane split_direction="vertical" {
             pane split_direction="horizontal" {
                 pane {
@@ -49,9 +58,15 @@ layout {
                 }
             }
         }
+        pane size=2 borderless=true {
+            plugin location="zellij:status-bar"
+        }
     }
 
     tab name="Frontend" {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
         pane split_direction="vertical" {
             pane {
                 name "dashboard :3000"
@@ -66,9 +81,15 @@ layout {
                 args "dev"
             }
         }
+        pane size=2 borderless=true {
+            plugin location="zellij:status-bar"
+        }
     }
 
     tab name="DB Studios" {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
         pane split_direction="vertical" {
             pane split_direction="horizontal" {
                 pane {
@@ -110,6 +131,9 @@ layout {
                     args "db:studio"
                 }
             }
+        }
+        pane size=2 borderless=true {
+            plugin location="zellij:status-bar"
         }
     }
 }
