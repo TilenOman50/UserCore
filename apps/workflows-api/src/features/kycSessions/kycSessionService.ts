@@ -11,14 +11,16 @@ export const createKycSessionService = (props: {
   const { kycSessionRepository, logger } = props;
 
   const startSession = async (data: {
-    userId: string;
+    customerId: string;
     workspaceId: string;
   }) => {
-    const existing = await kycSessionRepository.findByUserId(data.userId);
+    const existing = await kycSessionRepository.findByCustomerId(
+      data.customerId,
+    );
     if (existing && !["rejected"].includes(existing.status)) {
       return existing;
     }
-    logger.info({ msg: "Starting KYC session", userId: data.userId });
+    logger.info({ msg: "Starting KYC session", customerId: data.customerId });
     return kycSessionRepository.create(data);
   };
 

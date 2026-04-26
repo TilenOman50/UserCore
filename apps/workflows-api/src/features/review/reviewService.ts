@@ -40,7 +40,7 @@ export const createReviewService = (props: {
       routingKey: EVENTS.KYC_COMPLETED,
       payload: {
         kycSessionId: data.kycSessionId,
-        userId: session.userId,
+        customerId: session.customerId,
         workspaceId: session.workspaceId,
         status: data.decision === "approved" ? "approved" : "rejected",
         reviewedAt: new Date().toISOString(),

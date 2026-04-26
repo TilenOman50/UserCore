@@ -4,11 +4,11 @@ import { generateId, KYC_STATUSES } from "@usercore/shared-types";
 
 export const kycStatusEnum = pgEnum("kyc_status", KYC_STATUSES);
 
-export const UserProfileTable = pgTable("user_profile", {
+export const CustomerProfileTable = pgTable("customer_profile", {
   id: text("id")
     .primaryKey()
-    .$defaultFn(() => generateId("profile")),
-  userId: text("user_id").notNull().unique(),
+    .$defaultFn(() => generateId("customerprofile")),
+  customerId: text("customer_id").notNull().unique(),
   workspaceId: text("workspace_id").notNull(),
   firstName: text("first_name"),
   lastName: text("last_name"),
@@ -24,5 +24,5 @@ export const UserProfileTable = pgTable("user_profile", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export type UserProfile = typeof UserProfileTable.$inferSelect;
-export type NewUserProfile = typeof UserProfileTable.$inferInsert;
+export type CustomerProfile = typeof CustomerProfileTable.$inferSelect;
+export type NewCustomerProfile = typeof CustomerProfileTable.$inferInsert;

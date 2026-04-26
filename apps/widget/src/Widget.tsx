@@ -10,12 +10,12 @@ type Step = "form" | "document" | "liveness" | "success";
 type WidgetProps = {
   workflowsApiUrl: string;
   workspaceId: string;
-  userId: string;
+  customerId: string;
   onComplete?: (status: "submitted") => void;
 };
 
 export const Widget = (props: WidgetProps) => {
-  const { workflowsApiUrl, workspaceId, userId, onComplete } = props;
+  const { workflowsApiUrl, workspaceId, customerId, onComplete } = props;
   const [step, setStep] = useState<Step>("form");
   const [sessionId, setSessionId] = useState<string | null>(null);
 
@@ -73,7 +73,7 @@ export const Widget = (props: WidgetProps) => {
           <FormStep
             workflowsApiUrl={workflowsApiUrl}
             workspaceId={workspaceId}
-            userId={userId}
+            customerId={customerId}
             onComplete={(id) => {
               setSessionId(id);
               setStep("document");

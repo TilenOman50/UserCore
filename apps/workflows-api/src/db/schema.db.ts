@@ -34,8 +34,8 @@ export const documentTypeEnum = pgEnum("document_type", DOCUMENT_TYPES);
 export const KycSessionTable = pgTable("kyc_session", {
   id: text("id")
     .primaryKey()
-    .$defaultFn(() => generateId("kycsess")),
-  userId: text("user_id").notNull(),
+    .$defaultFn(() => generateId("kycsession")),
+  customerId: text("customer_id").notNull(),
   workspaceId: text("workspace_id").notNull(),
   status: kycSessionStatusEnum("status").default("started").notNull(),
   firstName: text("first_name"),
@@ -53,35 +53,39 @@ export const KycSessionTable = pgTable("kyc_session", {
 export const KycDocumentTable = pgTable("kyc_document", {
   id: text("id")
     .primaryKey()
-    .$defaultFn(() => generateId("kycdoc")),
+    .$defaultFn(() => generateId("kycdocument")),
   kycSessionId: text("kyc_session_id").notNull(),
   documentType: documentTypeEnum("document_type").notNull(),
   minioKey: text("minio_key").notNull(),
   originalFilename: text("original_filename").notNull(),
   mimeType: text("mime_type").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const LivenessCheckTable = pgTable("liveness_check", {
   id: text("id")
     .primaryKey()
-    .$defaultFn(() => generateId("liveness")),
+    .$defaultFn(() => generateId("livenesscheck")),
   kycSessionId: text("kyc_session_id").notNull(),
   passed: boolean("passed").notNull(),
   confidence: numeric("confidence", { precision: 5, scale: 4 }),
   checks: text("checks").array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const KycReviewTable = pgTable("kyc_review", {
   id: text("id")
     .primaryKey()
-    .$defaultFn(() => generateId("kycrev")),
+    .$defaultFn(() => generateId("kycreview")),
   kycSessionId: text("kyc_session_id").notNull(),
+  // Member id of the reviewer.
   reviewedBy: text("reviewed_by").notNull(),
   decision: text("decision", { enum: ["approved", "rejected"] }).notNull(),
   reason: text("reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export type KycSession = typeof KycSessionTable.$inferSelect;

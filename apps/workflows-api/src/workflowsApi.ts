@@ -54,7 +54,7 @@ export const createWorkflowsApi = (props: {
 
   const SessionSchema = z.object({
     id: z.string(),
-    userId: z.string(),
+    customerId: z.string(),
     workspaceId: z.string(),
     status: z.string(),
     firstName: z.string().nullable(),
@@ -135,7 +135,7 @@ export const createWorkflowsApi = (props: {
             content: {
               "application/json": {
                 schema: z.object({
-                  userId: z.string(),
+                  customerId: z.string(),
                   workspaceId: z.string(),
                 }),
               },

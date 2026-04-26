@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from "react-router-dom";
 
 import { useSession } from "../lib/authClient";
+import { WorkspaceProvider } from "../lib/workspaceContext";
 
 export const ProtectedRoute = () => {
   const { data, isPending } = useSession();
@@ -17,5 +18,9 @@ export const ProtectedRoute = () => {
     return <Navigate to="/login" replace />;
   }
 
-  return <Outlet />;
+  return (
+    <WorkspaceProvider>
+      <Outlet />
+    </WorkspaceProvider>
+  );
 };

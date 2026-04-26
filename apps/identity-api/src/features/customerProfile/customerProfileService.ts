@@ -1,24 +1,24 @@
 import type { Logger } from "@usercore/logger";
 import type { KycStatus } from "@usercore/shared-types";
 
-import type { UserProfileRepository } from "./userProfileRepository";
+import type { CustomerProfileRepository } from "./customerProfileRepository";
 
-export const createUserProfileService = (props: {
-  userProfileRepository: UserProfileRepository;
+export const createCustomerProfileService = (props: {
+  customerProfileRepository: CustomerProfileRepository;
   logger: Logger;
 }) => {
-  const { userProfileRepository, logger } = props;
+  const { customerProfileRepository, logger } = props;
 
-  const getProfile = async (userId: string) => {
-    return userProfileRepository.findByUserId(userId);
+  const getProfile = async (customerId: string) => {
+    return customerProfileRepository.findByCustomerId(customerId);
   };
 
   const listByWorkspace = async (workspaceId: string) => {
-    return userProfileRepository.findByWorkspaceId(workspaceId);
+    return customerProfileRepository.findByWorkspaceId(workspaceId);
   };
 
   const createProfile = async (data: {
-    userId: string;
+    customerId: string;
     workspaceId: string;
     firstName?: string;
     lastName?: string;
@@ -28,12 +28,15 @@ export const createUserProfileService = (props: {
     city?: string;
     country?: string;
   }) => {
-    logger.info({ msg: "Creating user profile", userId: data.userId });
-    return userProfileRepository.create(data);
+    logger.info({
+      msg: "Creating customer profile",
+      customerId: data.customerId,
+    });
+    return customerProfileRepository.create(data);
   };
 
   const updateProfile = async (
-    userId: string,
+    customerId: string,
     data: Partial<{
       firstName: string;
       lastName: string;
@@ -44,21 +47,21 @@ export const createUserProfileService = (props: {
       country: string;
     }>,
   ) => {
-    logger.info({ msg: "Updating user profile", userId });
-    return userProfileRepository.update(userId, data);
+    logger.info({ msg: "Updating customer profile", customerId });
+    return customerProfileRepository.update(customerId, data);
   };
 
   const updateKycStatus = async (props: {
-    userId: string;
+    customerId: string;
     kycStatus: KycStatus;
     kycSessionId?: string;
   }) => {
     logger.info({
       msg: "Updating KYC status",
-      userId: props.userId,
+      customerId: props.customerId,
       status: props.kycStatus,
     });
-    return userProfileRepository.updateKycStatus({
+    return customerProfileRepository.updateKycStatus({
       ...props,
       kycCompletedAt: ["approved", "rejected"].includes(props.kycStatus)
         ? new Date()
@@ -75,4 +78,6 @@ export const createUserProfileService = (props: {
   };
 };
 
-export type UserProfileService = ReturnType<typeof createUserProfileService>;
+export type CustomerProfileService = ReturnType<
+  typeof createCustomerProfileService
+>;

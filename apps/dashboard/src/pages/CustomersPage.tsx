@@ -6,9 +6,9 @@ const KYC_STATUS_COLORS: Record<string, string> = {
   flagged: "bg-orange-100 text-orange-700",
 };
 
-export const UsersPage = () => {
+export const CustomersPage = () => {
   // TODO: fetch from identity-api
-  const users: Array<{
+  const customers: Array<{
     id: string;
     firstName: string;
     lastName: string;
@@ -21,9 +21,9 @@ export const UsersPage = () => {
     <div className="p-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
           <p className="mt-1 text-sm text-gray-500">
-            All registered users in your workspace
+            End-users who have started or completed KYC in this workspace
           </p>
         </div>
       </div>
@@ -47,33 +47,36 @@ export const UsersPage = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {users.length === 0 ? (
+            {customers.length === 0 ? (
               <tr>
                 <td
                   colSpan={4}
                   className="px-6 py-12 text-center text-sm text-gray-500"
                 >
-                  No users yet.
+                  No customers yet.
                 </td>
               </tr>
             ) : (
-              users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50 cursor-pointer">
+              customers.map((customer) => (
+                <tr
+                  key={customer.id}
+                  className="hover:bg-gray-50 cursor-pointer"
+                >
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {user.firstName} {user.lastName}
+                    {customer.firstName} {customer.lastName}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
-                    {user.country}
+                    {customer.country}
                   </td>
                   <td className="px-6 py-4">
                     <span
-                      className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${KYC_STATUS_COLORS[user.kycStatus] ?? ""}`}
+                      className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${KYC_STATUS_COLORS[customer.kycStatus] ?? ""}`}
                     >
-                      {user.kycStatus}
+                      {customer.kycStatus}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
-                    {user.createdAt}
+                    {customer.createdAt}
                   </td>
                 </tr>
               ))

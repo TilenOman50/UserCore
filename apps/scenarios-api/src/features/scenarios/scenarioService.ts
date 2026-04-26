@@ -9,7 +9,10 @@ import type {
 import type { RuleEngineService } from "../ruleEngine/ruleEngineService";
 import type { ScenarioRepository } from "./scenarioRepository";
 
-type UserData = Record<string, string | number | boolean | null | undefined>;
+type CustomerData = Record<
+  string,
+  string | number | boolean | null | undefined
+>;
 
 export const createScenarioService = (props: {
   scenarioRepository: ScenarioRepository;
@@ -72,13 +75,13 @@ export const createScenarioService = (props: {
   };
 
   /**
-   * Evaluate all active scenarios for a workspace against the given user data.
+   * Evaluate all active scenarios for a workspace against the given customer data.
    * Triggered when a KYC session is submitted or a profile is updated.
    */
-  const evaluateScenariosForUser = async (props: {
+  const evaluateScenariosForCustomer = async (props: {
     workspaceId: string;
-    userId: string;
-    userData: UserData;
+    customerId: string;
+    customerData: CustomerData;
   }) => {
     const scenarios = await scenarioRepository.findActiveByWorkspaceId(
       props.workspaceId,
@@ -90,7 +93,7 @@ export const createScenarioService = (props: {
       const rules = await scenarioRepository.findRulesByScenarioId(scenario.id);
       const triggered = ruleEngineService.evaluateScenario(
         rules,
-        props.userData,
+        props.customerData,
       );
 
       if (triggered) {
@@ -104,7 +107,7 @@ export const createScenarioService = (props: {
             routingKey: EVENTS.SCENARIO_TRIGGERED,
             payload: {
               scenarioId: scenario.id,
-              userId: props.userId,
+              customerId: props.customerId,
               workspaceId: props.workspaceId,
               actionType: action.actionType,
             },
@@ -128,7 +131,7 @@ export const createScenarioService = (props: {
     addRule,
     removeRule,
     addAction,
-    evaluateScenariosForUser,
+    evaluateScenariosForCustomer,
   };
 };
 

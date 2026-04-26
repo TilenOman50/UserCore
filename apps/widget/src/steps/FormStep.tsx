@@ -3,7 +3,7 @@ import { useState } from "react";
 type FormStepProps = {
   workflowsApiUrl: string;
   workspaceId: string;
-  userId: string;
+  customerId: string;
   onComplete: (sessionId: string) => void;
 };
 
@@ -18,7 +18,7 @@ type FormData = {
 };
 
 export const FormStep = (props: FormStepProps) => {
-  const { workflowsApiUrl, workspaceId, userId, onComplete } = props;
+  const { workflowsApiUrl, workspaceId, customerId, onComplete } = props;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormData>({
@@ -49,7 +49,7 @@ export const FormStep = (props: FormStepProps) => {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId, workspaceId }),
+          body: JSON.stringify({ customerId, workspaceId }),
         },
       );
       const session = (await sessionRes.json()) as { id: string };

@@ -7,7 +7,8 @@ CREATE TABLE "kyc_document" (
 	"minio_key" text NOT NULL,
 	"original_filename" text NOT NULL,
 	"mime_type" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "kyc_review" (
@@ -16,12 +17,13 @@ CREATE TABLE "kyc_review" (
 	"reviewed_by" text NOT NULL,
 	"decision" text NOT NULL,
 	"reason" text,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "kyc_session" (
 	"id" text PRIMARY KEY NOT NULL,
-	"user_id" text NOT NULL,
+	"customer_id" text NOT NULL,
 	"workspace_id" text NOT NULL,
 	"status" "kyc_session_status" DEFAULT 'started' NOT NULL,
 	"first_name" text,
@@ -42,5 +44,6 @@ CREATE TABLE "liveness_check" (
 	"passed" boolean NOT NULL,
 	"confidence" numeric(5, 4),
 	"checks" text[],
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );

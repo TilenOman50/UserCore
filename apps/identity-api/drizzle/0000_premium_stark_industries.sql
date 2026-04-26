@@ -1,7 +1,7 @@
 CREATE TYPE "public"."kyc_status" AS ENUM('not_started', 'pending', 'approved', 'rejected', 'flagged');--> statement-breakpoint
-CREATE TABLE "user_profile" (
+CREATE TABLE "customer_profile" (
 	"id" text PRIMARY KEY NOT NULL,
-	"user_id" text NOT NULL,
+	"customer_id" text NOT NULL,
 	"workspace_id" text NOT NULL,
 	"first_name" text,
 	"last_name" text,
@@ -15,5 +15,5 @@ CREATE TABLE "user_profile" (
 	"kyc_completed_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "user_profile_user_id_unique" UNIQUE("user_id")
+	CONSTRAINT "customer_profile_customer_id_unique" UNIQUE("customer_id")
 );

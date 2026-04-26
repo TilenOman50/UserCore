@@ -21,10 +21,11 @@ module.exports = [
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      "react-refresh/only-export-components": [
-        "warn",
-        { allowConstantExport: true },
-      ],
+      // These v7 rules flag legitimate patterns (setState-from-fetched-data,
+      // window.location.assign, etc.) so we leave them off.
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/immutability": "off",
+      "react-refresh/only-export-components": "off",
     },
   },
 ];

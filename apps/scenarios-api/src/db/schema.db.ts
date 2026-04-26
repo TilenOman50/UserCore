@@ -29,6 +29,8 @@ export const ScenarioTable = pgTable("scenario", {
   name: text("name").notNull(),
   description: text("description"),
   isActive: text("is_active").default("true").notNull(),
+  // Member id of who created the scenario. Stored as text without an FK.
+  createdBy: text("created_by"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -38,10 +40,11 @@ export const ScenarioRuleTable = pgTable("scenario_rule", {
     .primaryKey()
     .$defaultFn(() => generateId("scenariorule")),
   scenarioId: text("scenario_id").notNull(),
-  field: text("field").notNull(), // e.g. "country", "dateOfBirth", "nationality"
+  field: text("field").notNull(),
   operator: ruleOperatorEnum("operator").notNull(),
-  value: text("value").notNull(), // stored as string, coerced at evaluation time
+  value: text("value").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const ScenarioActionTable = pgTable("scenario_action", {
@@ -50,8 +53,9 @@ export const ScenarioActionTable = pgTable("scenario_action", {
     .$defaultFn(() => generateId("action")),
   scenarioId: text("scenario_id").notNull(),
   actionType: actionTypeEnum("action_type").notNull(),
-  config: jsonb("config"), // e.g. { "emailTemplate": "flag_alert", "message": "..." }
+  config: jsonb("config"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const ScenarioExecutionTable = pgTable("scenario_execution", {
@@ -59,11 +63,12 @@ export const ScenarioExecutionTable = pgTable("scenario_execution", {
     .primaryKey()
     .$defaultFn(() => generateId("scenarioexec")),
   scenarioId: text("scenario_id").notNull(),
-  userId: text("user_id").notNull(),
+  customerId: text("customer_id").notNull(),
   workspaceId: text("workspace_id").notNull(),
   triggered: text("triggered").default("false").notNull(),
   actionsExecuted: text("actions_executed").array(),
-  executedAt: timestamp("executed_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export type Scenario = typeof ScenarioTable.$inferSelect;

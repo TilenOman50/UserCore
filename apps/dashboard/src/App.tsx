@@ -2,12 +2,12 @@ import { Route, Routes } from "react-router-dom";
 
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { CustomersPage } from "./pages/CustomersPage";
 import { KycReviewPage } from "./pages/KycReviewPage";
 import { LoginPage } from "./pages/LoginPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { ScenariosPage } from "./pages/ScenariosPage";
 import { SettingsPage } from "./pages/SettingsPage";
-import { UsersPage } from "./pages/UsersPage";
 
 export const App = () => {
   return (
@@ -16,7 +16,7 @@ export const App = () => {
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<Layout />}>
           <Route index element={<OverviewPage />} />
-          <Route path="users" element={<UsersPage />} />
+          <Route path="customers" element={<CustomersPage />} />
           <Route path="kyc-review" element={<KycReviewPage />} />
           <Route path="scenarios" element={<ScenariosPage />} />
           <Route path="settings" element={<SettingsPage />} />
