@@ -1,0 +1,49 @@
+name: CI checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel previous runs on the same branch when a new commit is pushed
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint, type-check, prettier, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update Corepack
+        run: npm install -g corepack@latest
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prettier
+        run: pnpm prettier
+
+      - name: Lint
+        if: always()
+        run: pnpm lint
+
+      - name: Type-check
+        if: always()
+        run: pnpm type-check
+
+      - name: Build
+        if: always()
+        run: pnpm build

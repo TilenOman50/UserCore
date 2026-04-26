@@ -5,7 +5,7 @@ import { generateId } from "@usercore/shared-types";
 export const WorkspaceSettingsTable = pgTable("workspace_settings", {
   id: text("id")
     .primaryKey()
-    .$defaultFn(() => generateId("wset")),
+    .$defaultFn(() => generateId("wssettings")),
   workspaceId: text("workspace_id").notNull().unique(),
   displayName: text("display_name"),
   logoUrl: text("logo_url"),

@@ -36,7 +36,10 @@ export const createUserProfileRepository = (props: {
     city?: string;
     country?: string;
   }) => {
-    const [profile] = await db.insert(UserProfileTable).values(data).returning();
+    const [profile] = await db
+      .insert(UserProfileTable)
+      .values(data)
+      .returning();
     return profile;
   };
 
@@ -82,4 +85,6 @@ export const createUserProfileRepository = (props: {
   return { findByUserId, findByWorkspaceId, create, update, updateKycStatus };
 };
 
-export type UserProfileRepository = ReturnType<typeof createUserProfileRepository>;
+export type UserProfileRepository = ReturnType<
+  typeof createUserProfileRepository
+>;

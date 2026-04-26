@@ -33,6 +33,10 @@
     "type-check": {
       "dependsOn": ["^build"]
     },
+    "prettier": {},
+    "prettier:fix": {
+      "cache": false
+    },
     "db:generate-migration": {
       "cache": false
     },

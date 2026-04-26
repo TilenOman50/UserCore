@@ -1,34 +1,68 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { organization } from "better-auth/plugins";
+import { emailOTP, organization } from "better-auth/plugins";
 
-import type { Logger } from "@usercore/logger";
+import { generateId } from "@usercore/shared-types";
 
+import {
+  account,
+  invitation,
+  member,
+  organization as organizationTable,
+  session,
+  user,
+  verification,
+} from "./db/auth.db";
 import type { Database } from "./db/db";
 import { env } from "./env";
+import type { Mailer } from "./mailer";
 
-export const createAuth = (props: { db: Database; logger: Logger }) => {
-  const { db } = props;
+const ID_PREFIXES: Record<string, string> = {
+  user: "user",
+  session: "session",
+  account: "account",
+  verification: "verification",
+  organization: "org",
+  member: "member",
+  invitation: "invitation",
+};
+
+export const createAuth = (props: { db: Database; mailer: Mailer }) => {
+  const { db, mailer } = props;
 
   return betterAuth({
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
+    advanced: {
+      database: {
+        generateId: ({ model }) => generateId(ID_PREFIXES[model] ?? model),
+      },
+    },
     database: drizzleAdapter(db, {
       provider: "pg",
+      schema: {
+        user,
+        session,
+        account,
+        verification,
+        organization: organizationTable,
+        member,
+        invitation,
+      },
     }),
-    emailAndPassword: {
-      enabled: true,
-      requireEmailVerification: false,
-    },
     plugins: [
+      emailOTP({
+        disableSignUp: true,
+        expiresIn: 600,
+        sendVerificationOTP: async ({ email, otp }) => {
+          await mailer.sendOtpEmail(email, otp);
+        },
+      }),
       organization({
-        allowUserToCreateOrganization: true,
+        allowUserToCreateOrganization: false,
       }),
     ],
-    trustedOrigins: [
-      "http://localhost:3000",
-      "http://localhost:3007",
-    ],
+    trustedOrigins: ["http://localhost:3000", "http://localhost:3007"],
   });
 };
 

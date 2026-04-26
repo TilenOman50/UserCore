@@ -39,7 +39,10 @@ export const createRuleEngineService = (props: { logger: Logger }) => {
         return !isNaN(numField) && !isNaN(numRule) && numField <= numRule;
       case "in":
         // ruleValue is comma-separated list: "US,CA,GB"
-        return ruleValue.split(",").map(v => v.trim().toLowerCase()).includes(strField);
+        return ruleValue
+          .split(",")
+          .map((v) => v.trim().toLowerCase())
+          .includes(strField);
       case "contains":
         return strField.includes(strRule);
       default:
@@ -52,7 +55,7 @@ export const createRuleEngineService = (props: { logger: Logger }) => {
     userData: UserData,
   ): boolean => {
     // All rules must pass (AND logic)
-    const result = rules.every(rule => evaluateRule(rule, userData));
+    const result = rules.every((rule) => evaluateRule(rule, userData));
     logger.debug({
       msg: "Scenario evaluation",
       ruleCount: rules.length,

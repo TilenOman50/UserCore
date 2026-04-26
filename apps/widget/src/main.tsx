@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 
 import { Widget } from "./Widget";
+
 import "./index.css";
 
 // Dev mode: render widget directly

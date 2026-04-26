@@ -31,7 +31,9 @@ export const FormStep = (props: FormStepProps) => {
     country: "",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
@@ -42,49 +44,65 @@ export const FormStep = (props: FormStepProps) => {
 
     try {
       // Start or resume session
-      const sessionRes = await fetch(`${workflowsApiUrl}/workflows/kyc-sessions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, workspaceId }),
-      });
-      const session = await sessionRes.json() as { id: string };
+      const sessionRes = await fetch(
+        `${workflowsApiUrl}/workflows/kyc-sessions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId, workspaceId }),
+        },
+      );
+      const session = (await sessionRes.json()) as { id: string };
 
       // Submit form data
-      await fetch(`${workflowsApiUrl}/workflows/kyc-sessions/${session.id}/form`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
+      await fetch(
+        `${workflowsApiUrl}/workflows/kyc-sessions/${session.id}/form`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        },
+      );
 
       onComplete(session.id);
-    } catch (err) {
+    } catch {
       setError("Failed to submit. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const fields: Array<{ name: keyof FormData; label: string; type?: string }> = [
-    { name: "firstName", label: "First Name" },
-    { name: "lastName", label: "Last Name" },
-    { name: "dateOfBirth", label: "Date of Birth", type: "date" },
-    { name: "nationality", label: "Nationality" },
-    { name: "address", label: "Address" },
-    { name: "city", label: "City" },
-    { name: "country", label: "Country" },
-  ];
+  const fields: Array<{ name: keyof FormData; label: string; type?: string }> =
+    [
+      { name: "firstName", label: "First Name" },
+      { name: "lastName", label: "Last Name" },
+      { name: "dateOfBirth", label: "Date of Birth", type: "date" },
+      { name: "nationality", label: "Nationality" },
+      { name: "address", label: "Address" },
+      { name: "city", label: "City" },
+      { name: "country", label: "Country" },
+    ];
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">Personal Information</h2>
-        <p className="text-sm text-gray-500 mt-0.5">Please fill in your details accurately</p>
+        <h2 className="text-lg font-semibold text-gray-900">
+          Personal Information
+        </h2>
+        <p className="text-sm text-gray-500 mt-0.5">
+          Please fill in your details accurately
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         {fields.map((field) => (
-          <div key={field.name} className={field.name === "address" ? "col-span-2" : ""}>
-            <label className="block text-xs font-medium text-gray-700 mb-1">{field.label}</label>
+          <div
+            key={field.name}
+            className={field.name === "address" ? "col-span-2" : ""}
+          >
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              {field.label}
+            </label>
             <input
               type={field.type ?? "text"}
               name={field.name}

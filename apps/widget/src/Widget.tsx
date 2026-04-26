@@ -32,27 +32,35 @@ export const Widget = (props: WidgetProps) => {
           <div className="w-6 h-6 rounded-md bg-primary-200 flex items-center justify-center">
             <span className="text-xs font-bold text-primary-700">UC</span>
           </div>
-          <span className="text-sm font-semibold text-gray-700">UserCore Verification</span>
+          <span className="text-sm font-semibold text-gray-700">
+            UserCore Verification
+          </span>
         </div>
 
         {/* Step indicators */}
         <div className="flex items-center gap-2">
           {stepLabels.map((label, i) => (
             <div key={label} className="flex items-center gap-2">
-              <div className={`flex items-center gap-1.5 ${i <= stepIndex ? "text-primary-700" : "text-gray-400"}`}>
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium border ${
-                  i < stepIndex
-                    ? "bg-primary-200 border-primary-200 text-primary-800"
-                    : i === stepIndex
-                    ? "border-primary-400 text-primary-700"
-                    : "border-gray-200 text-gray-400"
-                }`}>
+              <div
+                className={`flex items-center gap-1.5 ${i <= stepIndex ? "text-primary-700" : "text-gray-400"}`}
+              >
+                <div
+                  className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium border ${
+                    i < stepIndex
+                      ? "bg-primary-200 border-primary-200 text-primary-800"
+                      : i === stepIndex
+                        ? "border-primary-400 text-primary-700"
+                        : "border-gray-200 text-gray-400"
+                  }`}
+                >
                   {i < stepIndex ? "✓" : i + 1}
                 </div>
                 <span className="text-xs hidden sm:inline">{label}</span>
               </div>
               {i < stepLabels.length - 1 && (
-                <div className={`flex-1 h-px w-4 ${i < stepIndex ? "bg-primary-300" : "bg-gray-200"}`} />
+                <div
+                  className={`flex-1 h-px w-4 ${i < stepIndex ? "bg-primary-300" : "bg-gray-200"}`}
+                />
               )}
             </div>
           ))}

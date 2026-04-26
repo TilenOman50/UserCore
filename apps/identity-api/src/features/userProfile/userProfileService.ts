@@ -1,5 +1,3 @@
-import { HTTPException } from "hono/http-exception";
-
 import type { Logger } from "@usercore/logger";
 import type { KycStatus } from "@usercore/shared-types";
 
@@ -12,11 +10,7 @@ export const createUserProfileService = (props: {
   const { userProfileRepository, logger } = props;
 
   const getProfile = async (userId: string) => {
-    const profile = await userProfileRepository.findByUserId(userId);
-    if (!profile) {
-      throw new HTTPException(404, { message: "User profile not found" });
-    }
-    return profile;
+    return userProfileRepository.findByUserId(userId);
   };
 
   const listByWorkspace = async (workspaceId: string) => {
@@ -59,7 +53,11 @@ export const createUserProfileService = (props: {
     kycStatus: KycStatus;
     kycSessionId?: string;
   }) => {
-    logger.info({ msg: "Updating KYC status", userId: props.userId, status: props.kycStatus });
+    logger.info({
+      msg: "Updating KYC status",
+      userId: props.userId,
+      status: props.kycStatus,
+    });
     return userProfileRepository.updateKycStatus({
       ...props,
       kycCompletedAt: ["approved", "rejected"].includes(props.kycStatus)
@@ -68,7 +66,13 @@ export const createUserProfileService = (props: {
     });
   };
 
-  return { getProfile, listByWorkspace, createProfile, updateProfile, updateKycStatus };
+  return {
+    getProfile,
+    listByWorkspace,
+    createProfile,
+    updateProfile,
+    updateKycStatus,
+  };
 };
 
 export type UserProfileService = ReturnType<typeof createUserProfileService>;

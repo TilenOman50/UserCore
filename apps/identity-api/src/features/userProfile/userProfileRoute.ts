@@ -40,7 +40,9 @@ const UpdateKycStatusSchema = z.object({
   kycSessionId: z.string().optional(),
 });
 
-const serializeProfile = (p: NonNullable<Awaited<ReturnType<UserProfileService["getProfile"]>>>) => ({
+const serializeProfile = (
+  p: NonNullable<Awaited<ReturnType<UserProfileService["getProfile"]>>>,
+) => ({
   ...p,
   kycCompletedAt: p.kycCompletedAt?.toISOString() ?? null,
   createdAt: p.createdAt.toISOString(),
@@ -58,9 +60,16 @@ export const createUserProfileRouter = (props: {
         method: "post",
         path: "/profiles",
         tags: ["user-profile"],
-        request: { body: { content: { "application/json": { schema: CreateProfileSchema } } } },
+        request: {
+          body: {
+            content: { "application/json": { schema: CreateProfileSchema } },
+          },
+        },
         responses: {
-          201: { content: { "application/json": { schema: UserProfileSchema } }, description: "Created" },
+          201: {
+            content: { "application/json": { schema: UserProfileSchema } },
+            description: "Created",
+          },
         },
       }),
       async (c) => {
@@ -76,14 +85,25 @@ export const createUserProfileRouter = (props: {
         tags: ["user-profile"],
         request: { params: z.object({ userId: z.string() }) },
         responses: {
-          200: { content: { "application/json": { schema: UserProfileSchema } }, description: "Profile" },
-          404: { content: { "application/json": { schema: z.object({ error: z.string() }) } }, description: "Not found" },
+          200: {
+            content: { "application/json": { schema: UserProfileSchema } },
+            description: "Profile",
+          },
+          404: {
+            content: {
+              "application/json": { schema: z.object({ error: z.string() }) },
+            },
+            description: "Not found",
+          },
         },
       }),
       async (c) => {
         const { userId } = c.req.valid("param");
         const profile = await userProfileService.getProfile(userId);
-        return c.json(serializeProfile(profile));
+        if (!profile) {
+          return c.json({ error: "User profile not found" }, 404);
+        }
+        return c.json(serializeProfile(profile), 200);
       },
     )
     .openapi(
@@ -93,7 +113,12 @@ export const createUserProfileRouter = (props: {
         tags: ["user-profile"],
         request: { params: z.object({ workspaceId: z.string() }) },
         responses: {
-          200: { content: { "application/json": { schema: z.array(UserProfileSchema) } }, description: "Profiles" },
+          200: {
+            content: {
+              "application/json": { schema: z.array(UserProfileSchema) },
+            },
+            description: "Profiles",
+          },
         },
       }),
       async (c) => {
@@ -109,16 +134,24 @@ export const createUserProfileRouter = (props: {
         tags: ["user-profile"],
         request: {
           params: z.object({ userId: z.string() }),
-          body: { content: { "application/json": { schema: UpdateKycStatusSchema } } },
+          body: {
+            content: { "application/json": { schema: UpdateKycStatusSchema } },
+          },
         },
         responses: {
-          200: { content: { "application/json": { schema: UserProfileSchema } }, description: "Updated" },
+          200: {
+            content: { "application/json": { schema: UserProfileSchema } },
+            description: "Updated",
+          },
         },
       }),
       async (c) => {
         const { userId } = c.req.valid("param");
         const body = c.req.valid("json");
-        const profile = await userProfileService.updateKycStatus({ userId, ...body });
+        const profile = await userProfileService.updateKycStatus({
+          userId,
+          ...body,
+        });
         return c.json(serializeProfile(profile!));
       },
     );

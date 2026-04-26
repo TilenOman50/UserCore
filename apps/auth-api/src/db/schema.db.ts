@@ -11,7 +11,7 @@ export const workspaceRole = pgEnum("workspace_role", WORKSPACE_ROLES);
 export const WorkspaceTable = pgTable("workspace", {
   id: text("id")
     .primaryKey()
-    .$defaultFn(() => generateId("ws")),
+    .$defaultFn(() => generateId("workspace")),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   organizationId: text("organization_id").notNull(),

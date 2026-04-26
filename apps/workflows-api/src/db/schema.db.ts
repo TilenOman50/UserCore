@@ -1,4 +1,11 @@
-import { boolean, numeric, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  numeric,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
 
 import { generateId } from "@usercore/shared-types";
 
@@ -12,9 +19,16 @@ export const KYC_SESSION_STATUSES = [
   "approved",
   "rejected",
 ] as const;
-export const kycSessionStatusEnum = pgEnum("kyc_session_status", KYC_SESSION_STATUSES);
+export const kycSessionStatusEnum = pgEnum(
+  "kyc_session_status",
+  KYC_SESSION_STATUSES,
+);
 
-export const DOCUMENT_TYPES = ["passport", "national_id", "drivers_license"] as const;
+export const DOCUMENT_TYPES = [
+  "passport",
+  "national_id",
+  "drivers_license",
+] as const;
 export const documentTypeEnum = pgEnum("document_type", DOCUMENT_TYPES);
 
 export const KycSessionTable = pgTable("kyc_session", {

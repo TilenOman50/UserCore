@@ -23,7 +23,10 @@ export const createIdentityApi = (props: {
   const { db, logger, rabbitMQ } = props;
 
   const userProfileRepository = createUserProfileRepository({ db, logger });
-  const userProfileService = createUserProfileService({ userProfileRepository, logger });
+  const userProfileService = createUserProfileService({
+    userProfileRepository,
+    logger,
+  });
 
   // Listen for KYC completion events to update profile status
   rabbitMQ.subscribe({
@@ -43,30 +46,36 @@ export const createIdentityApi = (props: {
 
   const userProfileRouter = createUserProfileRouter({ userProfileService });
 
-  const app = new OpenAPIHono<{ Variables: ContextVariables }>()
-    .use("*", requestId())
-    .use("*", cors({
+  const app = new OpenAPIHono<{ Variables: ContextVariables }>();
+
+  app.use("*", requestId());
+  app.use(
+    "*",
+    cors({
       origin: ["http://localhost:3000", "http://localhost:3007"],
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization"],
       credentials: true,
-    }))
-    .use("*", async (c, next) => {
-      c.set("db", db);
-      c.set("logger", logger);
-      await next();
-    })
-    .get("/health", (c) => c.text("OK"))
-    .get(`${BASE_PATH}/doc`, swaggerUI({ url: `${BASE_PATH}/openapi.json` }))
-    .route(`${BASE_PATH}`, userProfileRouter)
-    .doc(`${BASE_PATH}/openapi.json`, {
-      openapi: "3.0.0",
-      info: { version: "1.0.0", title: "UserCore Identity API" },
-    })
-    .onError((err, c) => {
-      logger.error({ msg: "Unhandled error", error: err });
-      return c.json({ error: err.message }, 500);
-    });
+    }),
+  );
+  app.use("*", async (c, next) => {
+    c.set("db", db);
+    c.set("logger", logger);
+    await next();
+  });
 
-  return app;
+  app.get("/health", (c) => c.text("OK"));
+  app.get(`${BASE_PATH}/doc`, swaggerUI({ url: `${BASE_PATH}/openapi.json` }));
+
+  app.doc(`${BASE_PATH}/openapi.json`, {
+    openapi: "3.0.0",
+    info: { version: "1.0.0", title: "UserCore Identity API" },
+  });
+
+  app.onError((err, c) => {
+    logger.error({ msg: "Unhandled error", error: err });
+    return c.json({ error: err.message }, 500);
+  });
+
+  return app.route(`${BASE_PATH}`, userProfileRouter);
 };

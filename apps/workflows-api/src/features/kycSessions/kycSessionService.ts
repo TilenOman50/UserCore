@@ -10,7 +10,10 @@ export const createKycSessionService = (props: {
 }) => {
   const { kycSessionRepository, logger } = props;
 
-  const startSession = async (data: { userId: string; workspaceId: string }) => {
+  const startSession = async (data: {
+    userId: string;
+    workspaceId: string;
+  }) => {
     const existing = await kycSessionRepository.findByUserId(data.userId);
     if (existing && !["rejected"].includes(existing.status)) {
       return existing;
@@ -59,7 +62,14 @@ export const createKycSessionService = (props: {
     return kycSessionRepository.updateStatus(id, "under_review");
   };
 
-  return { startSession, getSession, listByWorkspace, submitFormData, submitSession, markUnderReview };
+  return {
+    startSession,
+    getSession,
+    listByWorkspace,
+    submitFormData,
+    submitSession,
+    markUnderReview,
+  };
 };
 
 export type KycSessionService = ReturnType<typeof createKycSessionService>;

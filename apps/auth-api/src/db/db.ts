@@ -7,7 +7,7 @@ import type { Logger } from "@usercore/logger";
 import { env } from "../env";
 import * as schema from "./schema";
 
-export const createDB = (props: { logger: Logger }) => {
+export const createDB = (_props: { logger: Logger }) => {
   const pool = new Pool({
     host: env.DB_HOST,
     port: env.DB_PORT,
