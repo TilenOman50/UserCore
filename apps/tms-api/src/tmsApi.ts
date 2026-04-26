@@ -5,14 +5,9 @@ import { requestId } from "hono/request-id";
 
 import type { Logger } from "@usercore/logger";
 import type { RabbitMQClient } from "@usercore/rabbitmq";
-import { EVENTS, WorkspaceCreatedPayload } from "@usercore/shared-types";
 
 import type { Database } from "./db/db";
-import { WorkspaceSettingsTable } from "./db/schema.db";
 import { createAuditLogRepository } from "./features/auditLog/auditLogRepository";
-import { createWorkspaceRepository } from "./features/workspace/workspaceRepository";
-import { createWorkspaceRouter } from "./features/workspace/workspaceRoute";
-import { createWorkspaceService } from "./features/workspace/workspaceService";
 import type { ContextVariables } from "./types";
 
 const BASE_PATH = "/tms";
@@ -22,40 +17,12 @@ export const createTmsApi = (props: {
   logger: Logger;
   rabbitMQ: RabbitMQClient;
 }) => {
-  const { db, logger, rabbitMQ } = props;
+  const { db, logger } = props;
 
-  // Subscribe to workspace.created event — create default settings
-  rabbitMQ.subscribe({
-    exchange: "usercore.events",
-    routingKey: EVENTS.WORKSPACE_CREATED,
-    queue: "tms-api.workspace-created",
-    handler: async (payload) => {
-      const parsed = WorkspaceCreatedPayload.safeParse(payload);
-      if (!parsed.success) return;
-      await db
-        .insert(WorkspaceSettingsTable)
-        .values({
-          workspaceId: parsed.data.workspaceId,
-          displayName: parsed.data.name,
-          primaryColor: "#C0E1D2",
-        })
-        .onConflictDoNothing();
-      logger.info({
-        msg: "Workspace settings initialized",
-        workspaceId: parsed.data.workspaceId,
-      });
-    },
-  });
-
-  const workspaceRepository = createWorkspaceRepository({ db, logger });
+  // Audit log repo is wired up so future event subscribers can write to it.
   const auditLogRepository = createAuditLogRepository({ db, logger });
-  const workspaceService = createWorkspaceService({
-    workspaceRepository,
-    logger,
-  });
-  const workspaceRouter = createWorkspaceRouter({ workspaceService });
-
   void auditLogRepository;
+  void props.rabbitMQ;
 
   const app = new OpenAPIHono<{ Variables: ContextVariables }>();
 
@@ -88,5 +55,5 @@ export const createTmsApi = (props: {
     return c.json({ error: err.message }, 500);
   });
 
-  return app.route(`${BASE_PATH}`, workspaceRouter);
+  return app;
 };

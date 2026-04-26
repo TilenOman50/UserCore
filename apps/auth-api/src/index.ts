@@ -24,7 +24,7 @@ const initializeApp = async () => {
   const auth = createAuth({ db, mailer });
 
   // Create Hono app
-  const app = createAuthApi({ db, logger, auth, rabbitMQ });
+  const app = createAuthApi({ db, logger, auth, rabbitMQ, mailer });
 
   logger.info({ msg: "Auth API started", port: 3001 });
 

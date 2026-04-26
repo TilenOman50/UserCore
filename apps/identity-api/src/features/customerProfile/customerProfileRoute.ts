@@ -3,11 +3,11 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { KycStatusEnum } from "@usercore/shared-types";
 
 import type { ContextVariables } from "../../types";
-import type { UserProfileService } from "./userProfileService";
+import type { CustomerProfileService } from "./customerProfileService";
 
-const UserProfileSchema = z.object({
+const CustomerProfileSchema = z.object({
   id: z.string(),
-  userId: z.string(),
+  customerId: z.string(),
   workspaceId: z.string(),
   firstName: z.string().nullable(),
   lastName: z.string().nullable(),
@@ -24,7 +24,7 @@ const UserProfileSchema = z.object({
 });
 
 const CreateProfileSchema = z.object({
-  userId: z.string(),
+  customerId: z.string(),
   workspaceId: z.string(),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
@@ -41,7 +41,7 @@ const UpdateKycStatusSchema = z.object({
 });
 
 const serializeProfile = (
-  p: NonNullable<Awaited<ReturnType<UserProfileService["getProfile"]>>>,
+  p: NonNullable<Awaited<ReturnType<CustomerProfileService["getProfile"]>>>,
 ) => ({
   ...p,
   kycCompletedAt: p.kycCompletedAt?.toISOString() ?? null,
@@ -49,17 +49,17 @@ const serializeProfile = (
   updatedAt: p.updatedAt.toISOString(),
 });
 
-export const createUserProfileRouter = (props: {
-  userProfileService: UserProfileService;
+export const createCustomerProfileRouter = (props: {
+  customerProfileService: CustomerProfileService;
 }) => {
-  const { userProfileService } = props;
+  const { customerProfileService } = props;
 
   return new OpenAPIHono<{ Variables: ContextVariables }>()
     .openapi(
       createRoute({
         method: "post",
         path: "/profiles",
-        tags: ["user-profile"],
+        tags: ["customer-profile"],
         request: {
           body: {
             content: { "application/json": { schema: CreateProfileSchema } },
@@ -67,26 +67,30 @@ export const createUserProfileRouter = (props: {
         },
         responses: {
           201: {
-            content: { "application/json": { schema: UserProfileSchema } },
+            content: {
+              "application/json": { schema: CustomerProfileSchema },
+            },
             description: "Created",
           },
         },
       }),
       async (c) => {
         const body = c.req.valid("json");
-        const profile = await userProfileService.createProfile(body);
+        const profile = await customerProfileService.createProfile(body);
         return c.json(serializeProfile(profile!), 201);
       },
     )
     .openapi(
       createRoute({
         method: "get",
-        path: "/profiles/user/:userId",
-        tags: ["user-profile"],
-        request: { params: z.object({ userId: z.string() }) },
+        path: "/profiles/customer/:customerId",
+        tags: ["customer-profile"],
+        request: { params: z.object({ customerId: z.string() }) },
         responses: {
           200: {
-            content: { "application/json": { schema: UserProfileSchema } },
+            content: {
+              "application/json": { schema: CustomerProfileSchema },
+            },
             description: "Profile",
           },
           404: {
@@ -98,10 +102,10 @@ export const createUserProfileRouter = (props: {
         },
       }),
       async (c) => {
-        const { userId } = c.req.valid("param");
-        const profile = await userProfileService.getProfile(userId);
+        const { customerId } = c.req.valid("param");
+        const profile = await customerProfileService.getProfile(customerId);
         if (!profile) {
-          return c.json({ error: "User profile not found" }, 404);
+          return c.json({ error: "Customer profile not found" }, 404);
         }
         return c.json(serializeProfile(profile), 200);
       },
@@ -110,12 +114,14 @@ export const createUserProfileRouter = (props: {
       createRoute({
         method: "get",
         path: "/profiles/workspace/:workspaceId",
-        tags: ["user-profile"],
+        tags: ["customer-profile"],
         request: { params: z.object({ workspaceId: z.string() }) },
         responses: {
           200: {
             content: {
-              "application/json": { schema: z.array(UserProfileSchema) },
+              "application/json": {
+                schema: z.array(CustomerProfileSchema),
+              },
             },
             description: "Profiles",
           },
@@ -123,33 +129,36 @@ export const createUserProfileRouter = (props: {
       }),
       async (c) => {
         const { workspaceId } = c.req.valid("param");
-        const profiles = await userProfileService.listByWorkspace(workspaceId);
+        const profiles =
+          await customerProfileService.listByWorkspace(workspaceId);
         return c.json(profiles.map(serializeProfile));
       },
     )
     .openapi(
       createRoute({
         method: "patch",
-        path: "/profiles/user/:userId/kyc-status",
-        tags: ["user-profile"],
+        path: "/profiles/customer/:customerId/kyc-status",
+        tags: ["customer-profile"],
         request: {
-          params: z.object({ userId: z.string() }),
+          params: z.object({ customerId: z.string() }),
           body: {
             content: { "application/json": { schema: UpdateKycStatusSchema } },
           },
         },
         responses: {
           200: {
-            content: { "application/json": { schema: UserProfileSchema } },
+            content: {
+              "application/json": { schema: CustomerProfileSchema },
+            },
             description: "Updated",
           },
         },
       }),
       async (c) => {
-        const { userId } = c.req.valid("param");
+        const { customerId } = c.req.valid("param");
         const body = c.req.valid("json");
-        const profile = await userProfileService.updateKycStatus({
-          userId,
+        const profile = await customerProfileService.updateKycStatus({
+          customerId,
           ...body,
         });
         return c.json(serializeProfile(profile!));

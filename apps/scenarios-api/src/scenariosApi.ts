@@ -340,8 +340,8 @@ export const createScenariosApi = (props: {
               "application/json": {
                 schema: z.object({
                   workspaceId: z.string(),
-                  userId: z.string(),
-                  userData: z.record(z.unknown()),
+                  customerId: z.string(),
+                  customerData: z.record(z.unknown()),
                 }),
               },
             },
@@ -360,10 +360,10 @@ export const createScenariosApi = (props: {
       }),
       async (c) => {
         const body = c.req.valid("json");
-        await scenarioService.evaluateScenariosForUser({
+        await scenarioService.evaluateScenariosForCustomer({
           workspaceId: body.workspaceId,
-          userId: body.userId,
-          userData: body.userData as Record<
+          customerId: body.customerId,
+          customerData: body.customerData as Record<
             string,
             string | number | boolean | null | undefined
           >,

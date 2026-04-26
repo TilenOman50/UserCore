@@ -5,17 +5,19 @@ CREATE TABLE "scenario_action" (
 	"scenario_id" text NOT NULL,
 	"action_type" "action_type" NOT NULL,
 	"config" jsonb,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "scenario_execution" (
 	"id" text PRIMARY KEY NOT NULL,
 	"scenario_id" text NOT NULL,
-	"user_id" text NOT NULL,
+	"customer_id" text NOT NULL,
 	"workspace_id" text NOT NULL,
 	"triggered" text DEFAULT 'false' NOT NULL,
 	"actions_executed" text[],
-	"executed_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "scenario_rule" (
@@ -24,7 +26,8 @@ CREATE TABLE "scenario_rule" (
 	"field" text NOT NULL,
 	"operator" "rule_operator" NOT NULL,
 	"value" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "scenario" (
@@ -33,6 +36,7 @@ CREATE TABLE "scenario" (
 	"name" text NOT NULL,
 	"description" text,
 	"is_active" text DEFAULT 'true' NOT NULL,
+	"created_by" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );

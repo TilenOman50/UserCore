@@ -15,6 +15,20 @@
       "when": 1777206814928,
       "tag": "0001_oval_iron_lad",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777222218879,
+      "tag": "0002_yummy_fallen_one",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777227189870,
+      "tag": "0003_many_bruce_banner",
+      "breakpoints": true
     }
   ]
 }

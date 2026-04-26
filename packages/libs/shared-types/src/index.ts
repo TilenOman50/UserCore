@@ -27,6 +27,7 @@ export type Pagination = z.infer<typeof PaginationSchema>;
 // RabbitMQ event payload types
 export const EVENTS = {
   WORKSPACE_CREATED: "workspace.created",
+  WORKSPACE_DELETED: "workspace.deleted",
   KYC_COMPLETED: "kyc.completed",
   KYC_NOTIFICATION: "kyc.notification",
   SCENARIO_TRIGGERED: "scenario.triggered",
@@ -39,9 +40,15 @@ export const WorkspaceCreatedPayload = z.object({
 });
 export type WorkspaceCreatedPayload = z.infer<typeof WorkspaceCreatedPayload>;
 
+export const WorkspaceDeletedPayload = z.object({
+  workspaceId: z.string(),
+  organizationId: z.string(),
+});
+export type WorkspaceDeletedPayload = z.infer<typeof WorkspaceDeletedPayload>;
+
 export const KycCompletedPayload = z.object({
   kycSessionId: z.string(),
-  userId: z.string(),
+  customerId: z.string(),
   workspaceId: z.string(),
   status: KycStatusEnum,
   reviewedAt: z.string().datetime(),
@@ -51,7 +58,7 @@ export const KycCompletedPayload = z.object({
 export type KycCompletedPayload = z.infer<typeof KycCompletedPayload>;
 
 export const KycNotificationPayload = z.object({
-  userId: z.string(),
+  customerId: z.string(),
   email: z.string().email(),
   status: KycStatusEnum,
   reason: z.string().optional(),
@@ -60,7 +67,7 @@ export type KycNotificationPayload = z.infer<typeof KycNotificationPayload>;
 
 export const ScenarioTriggeredPayload = z.object({
   scenarioId: z.string(),
-  userId: z.string(),
+  customerId: z.string(),
   workspaceId: z.string(),
   actionType: z.enum(["email_notification", "flag_user", "auto_reject"]),
 });

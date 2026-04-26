@@ -4,29 +4,29 @@ import type { Logger } from "@usercore/logger";
 import type { KycStatus } from "@usercore/shared-types";
 
 import type { Database } from "../../db/db";
-import { UserProfileTable } from "../../db/schema.db";
+import { CustomerProfileTable } from "../../db/schema.db";
 
-export const createUserProfileRepository = (props: {
+export const createCustomerProfileRepository = (props: {
   db: Database;
   logger: Logger;
 }) => {
   const { db } = props;
 
-  const findByUserId = async (userId: string) => {
-    return db.query.UserProfileTable.findFirst({
-      where: eq(UserProfileTable.userId, userId),
+  const findByCustomerId = async (customerId: string) => {
+    return db.query.CustomerProfileTable.findFirst({
+      where: eq(CustomerProfileTable.customerId, customerId),
     });
   };
 
   const findByWorkspaceId = async (workspaceId: string) => {
     return db
       .select()
-      .from(UserProfileTable)
-      .where(eq(UserProfileTable.workspaceId, workspaceId));
+      .from(CustomerProfileTable)
+      .where(eq(CustomerProfileTable.workspaceId, workspaceId));
   };
 
   const create = async (data: {
-    userId: string;
+    customerId: string;
     workspaceId: string;
     firstName?: string;
     lastName?: string;
@@ -37,14 +37,14 @@ export const createUserProfileRepository = (props: {
     country?: string;
   }) => {
     const [profile] = await db
-      .insert(UserProfileTable)
+      .insert(CustomerProfileTable)
       .values(data)
       .returning();
     return profile;
   };
 
   const update = async (
-    userId: string,
+    customerId: string,
     data: Partial<{
       firstName: string;
       lastName: string;
@@ -56,35 +56,41 @@ export const createUserProfileRepository = (props: {
     }>,
   ) => {
     const [profile] = await db
-      .update(UserProfileTable)
+      .update(CustomerProfileTable)
       .set({ ...data, updatedAt: new Date() })
-      .where(eq(UserProfileTable.userId, userId))
+      .where(eq(CustomerProfileTable.customerId, customerId))
       .returning();
     return profile;
   };
 
   const updateKycStatus = async (props: {
-    userId: string;
+    customerId: string;
     kycStatus: KycStatus;
     kycSessionId?: string;
     kycCompletedAt?: Date;
   }) => {
     const [profile] = await db
-      .update(UserProfileTable)
+      .update(CustomerProfileTable)
       .set({
         kycStatus: props.kycStatus,
         kycSessionId: props.kycSessionId,
         kycCompletedAt: props.kycCompletedAt,
         updatedAt: new Date(),
       })
-      .where(eq(UserProfileTable.userId, props.userId))
+      .where(eq(CustomerProfileTable.customerId, props.customerId))
       .returning();
     return profile;
   };
 
-  return { findByUserId, findByWorkspaceId, create, update, updateKycStatus };
+  return {
+    findByCustomerId,
+    findByWorkspaceId,
+    create,
+    update,
+    updateKycStatus,
+  };
 };
 
-export type UserProfileRepository = ReturnType<
-  typeof createUserProfileRepository
+export type CustomerProfileRepository = ReturnType<
+  typeof createCustomerProfileRepository
 >;

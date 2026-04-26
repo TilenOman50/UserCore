@@ -8,9 +8,9 @@ import type { RabbitMQClient } from "@usercore/rabbitmq";
 import { EVENTS, KycCompletedPayload } from "@usercore/shared-types";
 
 import type { Database } from "./db/db";
-import { createUserProfileRepository } from "./features/userProfile/userProfileRepository";
-import { createUserProfileRouter } from "./features/userProfile/userProfileRoute";
-import { createUserProfileService } from "./features/userProfile/userProfileService";
+import { createCustomerProfileRepository } from "./features/customerProfile/customerProfileRepository";
+import { createCustomerProfileRouter } from "./features/customerProfile/customerProfileRoute";
+import { createCustomerProfileService } from "./features/customerProfile/customerProfileService";
 import type { ContextVariables } from "./types";
 
 const BASE_PATH = "/identity";
@@ -22,9 +22,12 @@ export const createIdentityApi = (props: {
 }) => {
   const { db, logger, rabbitMQ } = props;
 
-  const userProfileRepository = createUserProfileRepository({ db, logger });
-  const userProfileService = createUserProfileService({
-    userProfileRepository,
+  const customerProfileRepository = createCustomerProfileRepository({
+    db,
+    logger,
+  });
+  const customerProfileService = createCustomerProfileService({
+    customerProfileRepository,
     logger,
   });
 
@@ -36,15 +39,17 @@ export const createIdentityApi = (props: {
     handler: async (payload) => {
       const parsed = KycCompletedPayload.safeParse(payload);
       if (!parsed.success) return;
-      await userProfileService.updateKycStatus({
-        userId: parsed.data.userId,
+      await customerProfileService.updateKycStatus({
+        customerId: parsed.data.customerId,
         kycStatus: parsed.data.status,
         kycSessionId: parsed.data.kycSessionId,
       });
     },
   });
 
-  const userProfileRouter = createUserProfileRouter({ userProfileService });
+  const customerProfileRouter = createCustomerProfileRouter({
+    customerProfileService,
+  });
 
   const app = new OpenAPIHono<{ Variables: ContextVariables }>();
 
@@ -77,5 +82,5 @@ export const createIdentityApi = (props: {
     return c.json({ error: err.message }, 500);
   });
 
-  return app.route(`${BASE_PATH}`, userProfileRouter);
+  return app.route(`${BASE_PATH}`, customerProfileRouter);
 };

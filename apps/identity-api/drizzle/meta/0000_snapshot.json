@@ -1,11 +1,11 @@
 {
-  "id": "cd8ae651-bacd-461b-96d7-297d1442c7c2",
+  "id": "9f6114de-1431-4c83-adb9-eb54f291da57",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.user_profile": {
-      "name": "user_profile",
+    "public.customer_profile": {
+      "name": "customer_profile",
       "schema": "",
       "columns": {
         "id": {
@@ -14,8 +14,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "user_id": {
-          "name": "user_id",
+        "customer_id": {
+          "name": "customer_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -107,11 +107,11 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "user_profile_user_id_unique": {
-          "name": "user_profile_user_id_unique",
+        "customer_profile_customer_id_unique": {
+          "name": "customer_profile_customer_id_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "user_id"
+            "customer_id"
           ]
         }
       },
