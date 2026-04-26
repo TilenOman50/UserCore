@@ -28,14 +28,18 @@ export const KycReviewPage = () => {
     <div className="p-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">KYC Review</h1>
-        <p className="mt-1 text-sm text-gray-500">Manually review pending KYC submissions</p>
+        <p className="mt-1 text-sm text-gray-500">
+          Manually review pending KYC submissions
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Queue */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Pending Review</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Pending Review
+            </h2>
           </div>
           <div className="divide-y divide-gray-100">
             {sessions.length === 0 ? (
@@ -69,9 +73,18 @@ export const KycReviewPage = () => {
             </h2>
 
             <div className="space-y-3 mb-6 text-sm text-gray-600">
-              <div><span className="font-medium">Country:</span> {selected.country}</div>
-              <div><span className="font-medium">Status:</span> {selected.status}</div>
-              <div><span className="font-medium">Session ID:</span> <code className="text-xs bg-gray-100 px-1 rounded">{selected.id}</code></div>
+              <div>
+                <span className="font-medium">Country:</span> {selected.country}
+              </div>
+              <div>
+                <span className="font-medium">Status:</span> {selected.status}
+              </div>
+              <div>
+                <span className="font-medium">Session ID:</span>{" "}
+                <code className="text-xs bg-gray-100 px-1 rounded">
+                  {selected.id}
+                </code>
+              </div>
             </div>
 
             <div className="mb-4">

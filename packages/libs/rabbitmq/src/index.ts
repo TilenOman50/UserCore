@@ -15,7 +15,7 @@ export const createRabbitMQClient = (props: {
   logger: Logger;
 }) => {
   const { url, logger } = props;
-  let connection: amqplib.Connection | null = null;
+  let connection: amqplib.ChannelModel | null = null;
   let channel: amqplib.Channel | null = null;
 
   const connect = async () => {

@@ -8,6 +8,13 @@
       "when": 1776006406574,
       "tag": "0000_yellow_nightmare",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777206814928,
+      "tag": "0001_oval_iron_lad",
+      "breakpoints": true
     }
   ]
 }

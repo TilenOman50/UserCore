@@ -17,7 +17,10 @@ export const createLivenessRepository = (props: {
     confidence?: string;
     checks?: string[];
   }) => {
-    const [check] = await db.insert(LivenessCheckTable).values(data).returning();
+    const [check] = await db
+      .insert(LivenessCheckTable)
+      .values(data)
+      .returning();
     return check;
   };
 

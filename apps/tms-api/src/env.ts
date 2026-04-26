@@ -2,7 +2,9 @@ import { z } from "zod";
 
 const EnvSchema = z.object({
   APP_ENV: z.enum(["local", "development", "production"]).default("local"),
-  LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error"]).default("info"),
+  LOG_LEVEL: z
+    .enum(["trace", "debug", "info", "warn", "error"])
+    .default("info"),
   DB_HOST: z.string().default("localhost"),
   DB_PORT: z.coerce.number().default(5432),
   DB_USER: z.string().default("usercore"),

@@ -9,6 +9,7 @@ const WorkspaceSettingsSchema = z.object({
   displayName: z.string().nullable(),
   logoUrl: z.string().nullable(),
   primaryColor: z.string().nullable(),
+  metadata: z.any(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -33,11 +34,15 @@ export const createWorkspaceRouter = (props: {
         request: { params: z.object({ workspaceId: z.string() }) },
         responses: {
           200: {
-            content: { "application/json": { schema: WorkspaceSettingsSchema } },
+            content: {
+              "application/json": { schema: WorkspaceSettingsSchema },
+            },
             description: "Workspace settings",
           },
           404: {
-            content: { "application/json": { schema: z.object({ error: z.string() }) } },
+            content: {
+              "application/json": { schema: z.object({ error: z.string() }) },
+            },
             description: "Not found",
           },
         },
@@ -48,11 +53,14 @@ export const createWorkspaceRouter = (props: {
         if (!settings) {
           return c.json({ error: "Workspace settings not found" }, 404);
         }
-        return c.json({
-          ...settings,
-          createdAt: settings.createdAt.toISOString(),
-          updatedAt: settings.updatedAt.toISOString(),
-        });
+        return c.json(
+          {
+            ...settings,
+            createdAt: settings.createdAt.toISOString(),
+            updatedAt: settings.updatedAt.toISOString(),
+          },
+          200,
+        );
       },
     )
     .openapi(
@@ -62,11 +70,15 @@ export const createWorkspaceRouter = (props: {
         tags: ["workspace"],
         request: {
           params: z.object({ workspaceId: z.string() }),
-          body: { content: { "application/json": { schema: UpdateSettingsSchema } } },
+          body: {
+            content: { "application/json": { schema: UpdateSettingsSchema } },
+          },
         },
         responses: {
           200: {
-            content: { "application/json": { schema: WorkspaceSettingsSchema } },
+            content: {
+              "application/json": { schema: WorkspaceSettingsSchema },
+            },
             description: "Updated",
           },
         },
@@ -74,12 +86,18 @@ export const createWorkspaceRouter = (props: {
       async (c) => {
         const { workspaceId } = c.req.valid("param");
         const body = c.req.valid("json");
-        const settings = await workspaceService.updateSettings({ workspaceId, ...body });
-        return c.json({
-          ...settings!,
-          createdAt: settings!.createdAt.toISOString(),
-          updatedAt: settings!.updatedAt.toISOString(),
+        const settings = await workspaceService.updateSettings({
+          workspaceId,
+          ...body,
         });
+        return c.json(
+          {
+            ...settings!,
+            createdAt: settings!.createdAt.toISOString(),
+            updatedAt: settings!.updatedAt.toISOString(),
+          },
+          200,
+        );
       },
     );
 };

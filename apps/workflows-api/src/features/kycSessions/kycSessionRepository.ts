@@ -30,10 +30,7 @@ export const createKycSessionRepository = (props: {
       .where(eq(KycSessionTable.workspaceId, workspaceId));
   };
 
-  const create = async (data: {
-    userId: string;
-    workspaceId: string;
-  }) => {
+  const create = async (data: { userId: string; workspaceId: string }) => {
     const [session] = await db.insert(KycSessionTable).values(data).returning();
     return session;
   };
@@ -75,7 +72,16 @@ export const createKycSessionRepository = (props: {
     return session;
   };
 
-  return { findById, findByUserId, findByWorkspaceId, create, updateFormData, updateStatus };
+  return {
+    findById,
+    findByUserId,
+    findByWorkspaceId,
+    create,
+    updateFormData,
+    updateStatus,
+  };
 };
 
-export type KycSessionRepository = ReturnType<typeof createKycSessionRepository>;
+export type KycSessionRepository = ReturnType<
+  typeof createKycSessionRepository
+>;

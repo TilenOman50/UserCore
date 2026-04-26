@@ -32,47 +32,61 @@ export const createTmsApi = (props: {
     handler: async (payload) => {
       const parsed = WorkspaceCreatedPayload.safeParse(payload);
       if (!parsed.success) return;
-      await db.insert(WorkspaceSettingsTable).values({
+      await db
+        .insert(WorkspaceSettingsTable)
+        .values({
+          workspaceId: parsed.data.workspaceId,
+          displayName: parsed.data.name,
+          primaryColor: "#C0E1D2",
+        })
+        .onConflictDoNothing();
+      logger.info({
+        msg: "Workspace settings initialized",
         workspaceId: parsed.data.workspaceId,
-        displayName: parsed.data.name,
-        primaryColor: "#C0E1D2",
-      }).onConflictDoNothing();
-      logger.info({ msg: "Workspace settings initialized", workspaceId: parsed.data.workspaceId });
+      });
     },
   });
 
   const workspaceRepository = createWorkspaceRepository({ db, logger });
   const auditLogRepository = createAuditLogRepository({ db, logger });
-  const workspaceService = createWorkspaceService({ workspaceRepository, logger });
+  const workspaceService = createWorkspaceService({
+    workspaceRepository,
+    logger,
+  });
   const workspaceRouter = createWorkspaceRouter({ workspaceService });
 
-  const app = new OpenAPIHono<{ Variables: ContextVariables }>()
-    .use("*", requestId())
-    .use("*", cors({
+  void auditLogRepository;
+
+  const app = new OpenAPIHono<{ Variables: ContextVariables }>();
+
+  app.use("*", requestId());
+  app.use(
+    "*",
+    cors({
       origin: ["http://localhost:3000"],
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization"],
       credentials: true,
-    }))
-    .use("*", async (c, next) => {
-      c.set("db", db);
-      c.set("logger", logger);
-      await next();
-    })
-    .get("/health", (c) => c.text("OK"))
-    .get(`${BASE_PATH}/doc`, swaggerUI({ url: `${BASE_PATH}/openapi.json` }))
-    .route(`${BASE_PATH}`, workspaceRouter)
-    .doc(`${BASE_PATH}/openapi.json`, {
-      openapi: "3.0.0",
-      info: { version: "1.0.0", title: "UserCore TMS API" },
-    })
-    .onError((err, c) => {
-      logger.error({ msg: "Unhandled error", error: err });
-      return c.json({ error: err.message }, 500);
-    });
+    }),
+  );
+  app.use("*", async (c, next) => {
+    c.set("db", db);
+    c.set("logger", logger);
+    await next();
+  });
 
-  // Suppress unused warning
-  void auditLogRepository;
+  app.get("/health", (c) => c.text("OK"));
+  app.get(`${BASE_PATH}/doc`, swaggerUI({ url: `${BASE_PATH}/openapi.json` }));
 
-  return app;
+  app.doc(`${BASE_PATH}/openapi.json`, {
+    openapi: "3.0.0",
+    info: { version: "1.0.0", title: "UserCore TMS API" },
+  });
+
+  app.onError((err, c) => {
+    logger.error({ msg: "Unhandled error", error: err });
+    return c.json({ error: err.message }, 500);
+  });
+
+  return app.route(`${BASE_PATH}`, workspaceRouter);
 };

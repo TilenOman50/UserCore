@@ -5,12 +5,14 @@ import { createAuth } from "./betterauth";
 import { createClients } from "./clients";
 import { createDB, migrateDB } from "./db/db";
 import { env } from "./env";
+import { createMailer } from "./mailer";
 
 const logger = createLogger({ name: "auth-api", level: env.LOG_LEVEL });
 
 const initializeApp = async () => {
   const db = createDB({ logger });
   const { rabbitMQ } = createClients({ logger });
+  const mailer = createMailer({ logger });
 
   // Connect to RabbitMQ
   await rabbitMQ.connect();
@@ -19,7 +21,7 @@ const initializeApp = async () => {
   await migrateDB({ db, logger });
 
   // Create Better Auth instance
-  const auth = createAuth({ db, logger });
+  const auth = createAuth({ db, mailer });
 
   // Create Hono app
   const app = createAuthApi({ db, logger, auth, rabbitMQ });

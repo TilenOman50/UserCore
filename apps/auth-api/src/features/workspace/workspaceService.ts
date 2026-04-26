@@ -29,7 +29,6 @@ export const createWorkspaceService = (props: {
       throw new HTTPException(500, { message: "Failed to create workspace" });
     }
 
-    // Publish workspace.created event
     await rabbitMQ.publish({
       exchange: "usercore.events",
       routingKey: EVENTS.WORKSPACE_CREATED,
@@ -45,11 +44,7 @@ export const createWorkspaceService = (props: {
   };
 
   const getWorkspace = async (id: string) => {
-    const workspace = await workspaceRepository.findById(id);
-    if (!workspace) {
-      throw new HTTPException(404, { message: "Workspace not found" });
-    }
-    return workspace;
+    return workspaceRepository.findById(id);
   };
 
   return { createWorkspace, getWorkspace };

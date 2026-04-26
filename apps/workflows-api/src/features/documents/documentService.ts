@@ -26,7 +26,11 @@ export const createDocumentService = (props: {
       mimeType: props.mimeType,
     });
 
-    logger.info({ msg: "Document uploaded", sessionId: props.kycSessionId, documentType: props.documentType });
+    logger.info({
+      msg: "Document uploaded",
+      sessionId: props.kycSessionId,
+      documentType: props.documentType,
+    });
 
     return documentRepository.create({
       kycSessionId: props.kycSessionId,

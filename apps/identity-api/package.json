@@ -11,7 +11,9 @@
     "db:migrate": "bun scripts/migrate.ts | pino-pretty",
     "db:generate-migration": "bun --bun drizzle-kit generate",
     "db:studio": "bun --bun drizzle-kit studio --port 4003",
-    "db:check": "bun --bun drizzle-kit check"
+    "db:check": "bun --bun drizzle-kit check",
+    "prettier": "prettier 'src/' --check",
+    "prettier:fix": "prettier 'src/' --write"
   },
   "dependencies": {
     "@hono/swagger-ui": "^0.5.2",

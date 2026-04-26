@@ -18,7 +18,10 @@ export const createWorkspaceService = (props: {
     logoUrl?: string;
     primaryColor?: string;
   }) => {
-    logger.info({ msg: "Updating workspace settings", workspaceId: data.workspaceId });
+    logger.info({
+      msg: "Updating workspace settings",
+      workspaceId: data.workspaceId,
+    });
     return workspaceRepository.upsertSettings(data);
   };
 

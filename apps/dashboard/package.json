@@ -8,10 +8,13 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "prettier": "prettier 'src/' --check",
+    "prettier:fix": "prettier 'src/' --write"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.74.4",
+    "better-auth": "^1.2.7",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.5.2"

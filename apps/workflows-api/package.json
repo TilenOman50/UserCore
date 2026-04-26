@@ -11,7 +11,9 @@
     "db:migrate": "bun scripts/migrate.ts | pino-pretty",
     "db:generate-migration": "bun --bun drizzle-kit generate",
     "db:studio": "bun --bun drizzle-kit studio --port 4004",
-    "db:check": "bun --bun drizzle-kit check"
+    "db:check": "bun --bun drizzle-kit check",
+    "prettier": "prettier 'src/' --check",
+    "prettier:fix": "prettier 'src/' --write"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.787.0",

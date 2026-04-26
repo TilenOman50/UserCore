@@ -2,10 +2,23 @@ import { jsonb, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { generateId } from "@usercore/shared-types";
 
-export const RULE_OPERATORS = ["eq", "neq", "gt", "lt", "gte", "lte", "in", "contains"] as const;
+export const RULE_OPERATORS = [
+  "eq",
+  "neq",
+  "gt",
+  "lt",
+  "gte",
+  "lte",
+  "in",
+  "contains",
+] as const;
 export const ruleOperatorEnum = pgEnum("rule_operator", RULE_OPERATORS);
 
-export const ACTION_TYPES = ["email_notification", "flag_user", "auto_reject"] as const;
+export const ACTION_TYPES = [
+  "email_notification",
+  "flag_user",
+  "auto_reject",
+] as const;
 export const actionTypeEnum = pgEnum("action_type", ACTION_TYPES);
 
 export const ScenarioTable = pgTable("scenario", {
@@ -23,7 +36,7 @@ export const ScenarioTable = pgTable("scenario", {
 export const ScenarioRuleTable = pgTable("scenario_rule", {
   id: text("id")
     .primaryKey()
-    .$defaultFn(() => generateId("rule")),
+    .$defaultFn(() => generateId("scenariorule")),
   scenarioId: text("scenario_id").notNull(),
   field: text("field").notNull(), // e.g. "country", "dateOfBirth", "nationality"
   operator: ruleOperatorEnum("operator").notNull(),
@@ -44,7 +57,7 @@ export const ScenarioActionTable = pgTable("scenario_action", {
 export const ScenarioExecutionTable = pgTable("scenario_execution", {
   id: text("id")
     .primaryKey()
-    .$defaultFn(() => generateId("exec")),
+    .$defaultFn(() => generateId("scenarioexec")),
   scenarioId: text("scenario_id").notNull(),
   userId: text("user_id").notNull(),
   workspaceId: text("workspace_id").notNull(),

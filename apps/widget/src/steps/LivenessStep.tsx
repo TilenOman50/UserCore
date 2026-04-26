@@ -1,5 +1,5 @@
-import { FaceDetector, FilesetResolver } from "@mediapipe/tasks-vision";
 import { useEffect, useRef, useState } from "react";
+import { FaceDetector, FilesetResolver } from "@mediapipe/tasks-vision";
 
 type LivenessStepProps = {
   workflowsApiUrl: string;
@@ -24,7 +24,9 @@ export const LivenessStep = (props: LivenessStepProps) => {
     blink_detected: "pending",
     head_turn: "pending",
   });
-  const [status, setStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "running" | "done" | "error">(
+    "idle",
+  );
   const [error, setError] = useState<string | null>(null);
   const [faceDetector, setFaceDetector] = useState<FaceDetector | null>(null);
 
@@ -36,7 +38,8 @@ export const LivenessStep = (props: LivenessStepProps) => {
         );
         const detector = await FaceDetector.createFromOptions(vision, {
           baseOptions: {
-            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+            modelAssetPath:
+              "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
             delegate: "GPU",
           },
           runningMode: "VIDEO",
@@ -59,7 +62,9 @@ export const LivenessStep = (props: LivenessStepProps) => {
         runDetectionLoop(stream);
       }
     } catch {
-      setError("Camera access denied. Please allow camera access and try again.");
+      setError(
+        "Camera access denied. Please allow camera access and try again.",
+      );
       setStatus("error");
     }
   };
@@ -75,29 +80,32 @@ export const LivenessStep = (props: LivenessStepProps) => {
         return;
       }
 
-      const detections = faceDetector.detectForVideo(videoRef.current, performance.now()).detections;
+      const detections = faceDetector.detectForVideo(
+        videoRef.current,
+        performance.now(),
+      ).detections;
       frameCount++;
 
       if (detections.length > 0) {
         passedChecks.add("face_detected");
-        setChecks(prev => ({ ...prev, face_detected: "passed" }));
+        setChecks((prev) => ({ ...prev, face_detected: "passed" }));
 
         // Simulate blink detection after 2 seconds of face being detected
         if (frameCount > 60) {
           passedChecks.add("blink_detected");
-          setChecks(prev => ({ ...prev, blink_detected: "passed" }));
+          setChecks((prev) => ({ ...prev, blink_detected: "passed" }));
         }
 
         // Simulate head turn after 4 seconds
         if (frameCount > 120) {
           passedChecks.add("head_turn");
-          setChecks(prev => ({ ...prev, head_turn: "passed" }));
+          setChecks((prev) => ({ ...prev, head_turn: "passed" }));
         }
       }
 
       if (passedChecks.size === 3) {
         // All checks passed — stop camera and submit
-        stream.getTracks().forEach(t => t.stop());
+        stream.getTracks().forEach((t) => t.stop());
         setStatus("done");
         await submitLivenessResult(Array.from(passedChecks));
         return;
@@ -111,19 +119,25 @@ export const LivenessStep = (props: LivenessStepProps) => {
 
   const submitLivenessResult = async (passedChecks: string[]) => {
     try {
-      await fetch(`${workflowsApiUrl}/workflows/kyc-sessions/${sessionId}/liveness`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          passed: true,
-          confidence: 0.95,
-          checks: passedChecks,
-        }),
-      });
+      await fetch(
+        `${workflowsApiUrl}/workflows/kyc-sessions/${sessionId}/liveness`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            passed: true,
+            confidence: 0.95,
+            checks: passedChecks,
+          }),
+        },
+      );
 
-      await fetch(`${workflowsApiUrl}/workflows/kyc-sessions/${sessionId}/submit`, {
-        method: "POST",
-      });
+      await fetch(
+        `${workflowsApiUrl}/workflows/kyc-sessions/${sessionId}/submit`,
+        {
+          method: "POST",
+        },
+      );
 
       setTimeout(onComplete, 1500);
     } catch {
@@ -137,7 +151,9 @@ export const LivenessStep = (props: LivenessStepProps) => {
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold text-gray-900">Liveness Check</h2>
-        <p className="text-sm text-gray-500 mt-0.5">Follow the instructions to verify you're present</p>
+        <p className="text-sm text-gray-500 mt-0.5">
+          Follow the instructions to verify you're present
+        </p>
       </div>
 
       {/* Camera view */}
@@ -167,14 +183,20 @@ export const LivenessStep = (props: LivenessStepProps) => {
       <div className="space-y-2">
         {checkEntries.map(([check, checkStatus]) => (
           <div key={check} className="flex items-center gap-3">
-            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${
-              checkStatus === "passed"
-                ? "bg-primary-200 text-primary-700"
+            <div
+              className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${
+                checkStatus === "passed"
+                  ? "bg-primary-200 text-primary-700"
+                  : checkStatus === "failed"
+                    ? "bg-red-100 text-red-700"
+                    : "bg-gray-100 text-gray-400"
+              }`}
+            >
+              {checkStatus === "passed"
+                ? "✓"
                 : checkStatus === "failed"
-                ? "bg-red-100 text-red-700"
-                : "bg-gray-100 text-gray-400"
-            }`}>
-              {checkStatus === "passed" ? "✓" : checkStatus === "failed" ? "✗" : "○"}
+                  ? "✗"
+                  : "○"}
             </div>
             <span className="text-sm text-gray-700">{CHECK_LABELS[check]}</span>
           </div>

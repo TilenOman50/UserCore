@@ -1,10 +1,11 @@
-import { HTTPException } from "hono/http-exception";
-
 import type { Logger } from "@usercore/logger";
 import type { RabbitMQClient } from "@usercore/rabbitmq";
 import { EVENTS } from "@usercore/shared-types";
 
-import type { ScenarioActionTable, ScenarioRuleTable } from "../../db/schema.db";
+import type {
+  ScenarioActionTable,
+  ScenarioRuleTable,
+} from "../../db/schema.db";
 import type { RuleEngineService } from "../ruleEngine/ruleEngineService";
 import type { ScenarioRepository } from "./scenarioRepository";
 
@@ -28,16 +29,17 @@ export const createScenarioService = (props: {
   };
 
   const getScenario = async (id: string) => {
-    const scenario = await scenarioRepository.findById(id);
-    if (!scenario) throw new HTTPException(404, { message: "Scenario not found" });
-    return scenario;
+    return scenarioRepository.findById(id);
   };
 
   const listScenarios = async (workspaceId: string) => {
     return scenarioRepository.findByWorkspaceId(workspaceId);
   };
 
-  const updateScenario = async (id: string, data: { name?: string; description?: string; isActive?: boolean }) => {
+  const updateScenario = async (
+    id: string,
+    data: { name?: string; description?: string; isActive?: boolean },
+  ) => {
     return scenarioRepository.update(id, {
       ...data,
       isActive: data.isActive !== undefined ? String(data.isActive) : undefined,
@@ -78,16 +80,23 @@ export const createScenarioService = (props: {
     userId: string;
     userData: UserData;
   }) => {
-    const scenarios = await scenarioRepository.findActiveByWorkspaceId(props.workspaceId);
+    const scenarios = await scenarioRepository.findActiveByWorkspaceId(
+      props.workspaceId,
+    );
 
     for (const scenario of scenarios) {
       if (scenario.isActive !== "true") continue;
 
       const rules = await scenarioRepository.findRulesByScenarioId(scenario.id);
-      const triggered = ruleEngineService.evaluateScenario(rules, props.userData);
+      const triggered = ruleEngineService.evaluateScenario(
+        rules,
+        props.userData,
+      );
 
       if (triggered) {
-        const actions = await scenarioRepository.findActionsByScenarioId(scenario.id);
+        const actions = await scenarioRepository.findActionsByScenarioId(
+          scenario.id,
+        );
 
         for (const action of actions) {
           await rabbitMQ.publish({
@@ -100,7 +109,11 @@ export const createScenarioService = (props: {
               actionType: action.actionType,
             },
           });
-          logger.info({ msg: "Scenario triggered", scenarioId: scenario.id, action: action.actionType });
+          logger.info({
+            msg: "Scenario triggered",
+            scenarioId: scenario.id,
+            action: action.actionType,
+          });
         }
       }
     }

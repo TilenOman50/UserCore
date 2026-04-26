@@ -93,7 +93,10 @@ export const createScenarioRepository = (props: {
     actionType: typeof ScenarioActionTable.$inferInsert.actionType;
     config?: Record<string, unknown>;
   }) => {
-    const [action] = await db.insert(ScenarioActionTable).values(data).returning();
+    const [action] = await db
+      .insert(ScenarioActionTable)
+      .values(data)
+      .returning();
     return action;
   };
 

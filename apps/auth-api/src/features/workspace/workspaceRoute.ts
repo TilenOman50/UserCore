@@ -95,11 +95,17 @@ export const createWorkspaceRouter = (props: {
       async (c) => {
         const { id } = c.req.valid("param");
         const workspace = await workspaceService.getWorkspace(id);
-        return c.json({
-          ...workspace,
-          createdAt: workspace.createdAt.toISOString(),
-          updatedAt: workspace.updatedAt.toISOString(),
-        });
+        if (!workspace) {
+          return c.json({ error: "Workspace not found" }, 404);
+        }
+        return c.json(
+          {
+            ...workspace,
+            createdAt: workspace.createdAt.toISOString(),
+            updatedAt: workspace.updatedAt.toISOString(),
+          },
+          200,
+        );
       },
     );
 };
