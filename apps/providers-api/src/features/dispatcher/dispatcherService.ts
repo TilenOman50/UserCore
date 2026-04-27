@@ -14,9 +14,7 @@ import type { IpQualityScoreClient } from "../ipQualityScore/ipQualityScoreClien
 
 const QUEUE = "providers-api.check-requested";
 
-type DispatchHandler = (
-  request: ProviderCheckRequestedPayload,
-) => Promise<{
+type DispatchHandler = (request: ProviderCheckRequestedPayload) => Promise<{
   status: WorkflowSessionStatus;
   rawPayload: Record<string, unknown>;
   message?: string;
