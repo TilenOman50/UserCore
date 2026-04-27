@@ -1,0 +1,1 @@
+ALTER TABLE "workflow" ADD COLUMN "deleted_at" timestamp;

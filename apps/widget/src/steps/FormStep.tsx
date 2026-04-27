@@ -2,30 +2,25 @@ import { useState } from "react";
 
 type FormStepProps = {
   workflowsApiUrl: string;
-  workspaceId: string;
-  customerId: string;
-  onComplete: (sessionId: string) => void;
+  sessionId: string;
+  onComplete: () => void;
 };
 
 type FormData = {
-  firstName: string;
-  lastName: string;
-  dateOfBirth: string;
-  nationality: string;
+  email: string;
+  phone: string;
   address: string;
   city: string;
   country: string;
 };
 
 export const FormStep = (props: FormStepProps) => {
-  const { workflowsApiUrl, workspaceId, customerId, onComplete } = props;
+  const { workflowsApiUrl, sessionId, onComplete } = props;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormData>({
-    firstName: "",
-    lastName: "",
-    dateOfBirth: "",
-    nationality: "",
+    email: "",
+    phone: "",
     address: "",
     city: "",
     country: "",
@@ -43,28 +38,24 @@ export const FormStep = (props: FormStepProps) => {
     setError(null);
 
     try {
-      // Start or resume session
-      const sessionRes = await fetch(
-        `${workflowsApiUrl}/workflows/kyc-sessions`,
+      const attributes = (Object.entries(form) as Array<[keyof FormData, string]>)
+        .filter(([, value]) => value !== "")
+        .map(([key, value]) => ({
+          attribute: `contact_information.${key}`,
+          value,
+          attributeType: "STRING" as const,
+        }));
+
+      const res = await fetch(
+        `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(sessionId)}/attributes`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ customerId, workspaceId }),
+          body: JSON.stringify({ attributes }),
         },
       );
-      const session = (await sessionRes.json()) as { id: string };
-
-      // Submit form data
-      await fetch(
-        `${workflowsApiUrl}/workflows/kyc-sessions/${session.id}/form`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
-        },
-      );
-
-      onComplete(session.id);
+      if (!res.ok) throw new Error("Submit failed");
+      onComplete();
     } catch {
       setError("Failed to submit. Please try again.");
     } finally {
@@ -74,10 +65,8 @@ export const FormStep = (props: FormStepProps) => {
 
   const fields: Array<{ name: keyof FormData; label: string; type?: string }> =
     [
-      { name: "firstName", label: "First Name" },
-      { name: "lastName", label: "Last Name" },
-      { name: "dateOfBirth", label: "Date of Birth", type: "date" },
-      { name: "nationality", label: "Nationality" },
+      { name: "email", label: "Email", type: "email" },
+      { name: "phone", label: "Phone", type: "tel" },
       { name: "address", label: "Address" },
       { name: "city", label: "City" },
       { name: "country", label: "Country" },
@@ -87,10 +76,10 @@ export const FormStep = (props: FormStepProps) => {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold text-gray-900">
-          Personal Information
+          Contact information
         </h2>
         <p className="text-sm text-gray-500 mt-0.5">
-          Please fill in your details accurately
+          We'll use this to reach you about your verification.
         </p>
       </div>
 

@@ -56,6 +56,12 @@ layout {
                     command "pnpm"
                     args "dev"
                 }
+                pane {
+                    name "providers-api :3008"
+                    cwd "apps/providers-api"
+                    command "pnpm"
+                    args "dev"
+                }
             }
         }
         pane size=2 borderless=true {

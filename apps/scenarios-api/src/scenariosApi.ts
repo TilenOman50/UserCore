@@ -5,9 +5,14 @@ import { requestId } from "hono/request-id";
 
 import type { Logger } from "@usercore/logger";
 import type { RabbitMQClient } from "@usercore/rabbitmq";
+import {
+  RuleOperatorEnum,
+  ScenarioActionConfigSchema,
+  ScenarioEvaluationSchema,
+} from "@usercore/shared-types";
 
 import type { Database } from "./db/db";
-import type { ScenarioActionTable, ScenarioRuleTable } from "./db/schema.db";
+import type { Scenario } from "./db/schema.db";
 import { createRuleEngineService } from "./features/ruleEngine/ruleEngineService";
 import { createScenarioRepository } from "./features/scenarios/scenarioRepository";
 import { createScenarioService } from "./features/scenarios/scenarioService";
@@ -20,26 +25,25 @@ const ScenarioSchema = z.object({
   workspaceId: z.string(),
   name: z.string(),
   description: z.string().nullable(),
-  isActive: z.string(),
+  evaluation: ScenarioEvaluationSchema,
+  actions: z.array(ScenarioActionConfigSchema),
+  createdBy: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
 
-const RuleSchema = z.object({
-  id: z.string(),
-  scenarioId: z.string(),
-  field: z.string(),
-  operator: z.enum(["eq", "neq", "gt", "lt", "gte", "lte", "in", "contains"]),
-  value: z.string(),
-  createdAt: z.string(),
-});
+const ErrorSchema = z.object({ error: z.string() });
 
-const ActionSchema = z.object({
-  id: z.string(),
-  scenarioId: z.string(),
-  actionType: z.enum(["email_notification", "flag_user", "auto_reject"]),
-  config: z.any(),
-  createdAt: z.string(),
+const serializeScenario = (s: Scenario) => ({
+  id: s.id,
+  workspaceId: s.workspaceId,
+  name: s.name,
+  description: s.description,
+  evaluation: s.evaluation,
+  actions: s.actions,
+  createdBy: s.createdBy,
+  createdAt: s.createdAt.toISOString(),
+  updatedAt: s.updatedAt.toISOString(),
 });
 
 export const createScenariosApi = (props: {
@@ -56,14 +60,6 @@ export const createScenariosApi = (props: {
     ruleEngineService,
     rabbitMQ,
     logger,
-  });
-
-  const serializeScenario = (
-    s: NonNullable<Awaited<ReturnType<typeof scenarioService.getScenario>>>,
-  ) => ({
-    ...s,
-    createdAt: s.createdAt.toISOString(),
-    updatedAt: s.updatedAt.toISOString(),
   });
 
   const app = new OpenAPIHono<{ Variables: ContextVariables }>();
@@ -116,20 +112,13 @@ export const createScenariosApi = (props: {
       async (c) => {
         const { workspaceId } = c.req.valid("param");
         const scenarios = await scenarioService.listScenarios(workspaceId);
-        return c.json(
-          scenarios.map((s) => ({
-            ...s,
-            createdAt: s.createdAt.toISOString(),
-            updatedAt: s.updatedAt.toISOString(),
-          })),
-          200,
-        );
+        return c.json(scenarios.map(serializeScenario), 200);
       },
     )
     .openapi(
       createRoute({
         method: "post",
-        path: `${BASE_PATH}`,
+        path: BASE_PATH,
         tags: ["scenarios"],
         request: {
           body: {
@@ -137,8 +126,9 @@ export const createScenariosApi = (props: {
               "application/json": {
                 schema: z.object({
                   workspaceId: z.string(),
-                  name: z.string(),
+                  name: z.string().min(1).max(120),
                   description: z.string().optional(),
+                  createdBy: z.string().optional(),
                 }),
               },
             },
@@ -169,9 +159,7 @@ export const createScenariosApi = (props: {
             description: "Scenario",
           },
           404: {
-            content: {
-              "application/json": { schema: z.object({ error: z.string() }) },
-            },
+            content: { "application/json": { schema: ErrorSchema } },
             description: "Not found",
           },
         },
@@ -179,9 +167,7 @@ export const createScenariosApi = (props: {
       async (c) => {
         const { id } = c.req.valid("param");
         const scenario = await scenarioService.getScenario(id);
-        if (!scenario) {
-          return c.json({ error: "Scenario not found" }, 404);
-        }
+        if (!scenario) return c.json({ error: "Scenario not found" }, 404);
         return c.json(serializeScenario(scenario), 200);
       },
     )
@@ -196,9 +182,10 @@ export const createScenariosApi = (props: {
             content: {
               "application/json": {
                 schema: z.object({
-                  name: z.string().optional(),
-                  description: z.string().optional(),
-                  isActive: z.boolean().optional(),
+                  name: z.string().min(1).max(120).optional(),
+                  description: z.string().nullable().optional(),
+                  evaluation: ScenarioEvaluationSchema.optional(),
+                  actions: z.array(ScenarioActionConfigSchema).optional(),
                 }),
               },
             },
@@ -230,103 +217,6 @@ export const createScenariosApi = (props: {
         const { id } = c.req.valid("param");
         await scenarioService.deleteScenario(id);
         return c.body(null, 204);
-      },
-    )
-    .openapi(
-      createRoute({
-        method: "post",
-        path: `${BASE_PATH}/:id/rules`,
-        tags: ["rules"],
-        request: {
-          params: z.object({ id: z.string() }),
-          body: {
-            content: {
-              "application/json": {
-                schema: z.object({
-                  field: z.string(),
-                  operator: z.enum([
-                    "eq",
-                    "neq",
-                    "gt",
-                    "lt",
-                    "gte",
-                    "lte",
-                    "in",
-                    "contains",
-                  ]),
-                  value: z.string(),
-                }),
-              },
-            },
-          },
-        },
-        responses: {
-          201: {
-            content: { "application/json": { schema: RuleSchema } },
-            description: "Rule added",
-          },
-        },
-      }),
-      async (c) => {
-        const { id } = c.req.valid("param");
-        const body = c.req.valid("json");
-        const rule = await scenarioService.addRule({
-          scenarioId: id,
-          ...(body as {
-            field: string;
-            operator: typeof ScenarioRuleTable.$inferInsert.operator;
-            value: string;
-          }),
-        });
-        return c.json(
-          { ...rule!, createdAt: rule!.createdAt.toISOString() },
-          201,
-        );
-      },
-    )
-    .openapi(
-      createRoute({
-        method: "post",
-        path: `${BASE_PATH}/:id/actions`,
-        tags: ["actions"],
-        request: {
-          params: z.object({ id: z.string() }),
-          body: {
-            content: {
-              "application/json": {
-                schema: z.object({
-                  actionType: z.enum([
-                    "email_notification",
-                    "flag_user",
-                    "auto_reject",
-                  ]),
-                  config: z.record(z.unknown()).optional(),
-                }),
-              },
-            },
-          },
-        },
-        responses: {
-          201: {
-            content: { "application/json": { schema: ActionSchema } },
-            description: "Action added",
-          },
-        },
-      }),
-      async (c) => {
-        const { id } = c.req.valid("param");
-        const body = c.req.valid("json");
-        const action = await scenarioService.addAction({
-          scenarioId: id,
-          ...(body as {
-            actionType: typeof ScenarioActionTable.$inferInsert.actionType;
-            config?: Record<string, unknown>;
-          }),
-        });
-        return c.json(
-          { ...action!, createdAt: action!.createdAt.toISOString() },
-          201,
-        );
       },
     )
     .openapi(
@@ -372,3 +262,7 @@ export const createScenariosApi = (props: {
       },
     );
 };
+
+// Operator enum re-export to keep old imports happy if any external service
+// still references it.
+export { RuleOperatorEnum };

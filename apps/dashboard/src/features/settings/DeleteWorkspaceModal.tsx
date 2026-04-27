@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { useDeleteWorkspace } from "../../lib/hooks/useWorkspaceMutations";
 
@@ -11,6 +12,7 @@ export const DeleteWorkspaceModal = (props: {
   const { open, onClose, workspaceId, workspaceName } = props;
   const [confirmation, setConfirmation] = useState("");
   const deleteWorkspace = useDeleteWorkspace();
+  const navigate = useNavigate();
 
   if (!open) return null;
 
@@ -20,6 +22,7 @@ export const DeleteWorkspaceModal = (props: {
     try {
       await deleteWorkspace.mutateAsync(workspaceId);
       onClose();
+      navigate("/");
     } catch {
       // Error displayed below
     }

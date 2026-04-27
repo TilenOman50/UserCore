@@ -11,7 +11,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <Widget
         workflowsApiUrl="http://localhost:3004"
+        providersApiUrl="http://localhost:3008"
         workspaceId="workspace_dev"
+        organizationId="organization_dev"
         customerId="customer_dev"
         onComplete={(status) => console.log("Widget complete:", status)}
       />

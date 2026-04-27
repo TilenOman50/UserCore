@@ -1,6 +1,9 @@
+import { FolderPlus } from "lucide-react";
+import { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 import { CommandPalette } from "../features/command-palette/CommandPalette";
+import { NewWorkspaceModal } from "../features/workspace/NewWorkspaceModal";
 import { WorkspaceSwitcher } from "../features/workspace/WorkspaceSwitcher";
 import { signOut } from "../lib/authClient";
 import { useWorkspace } from "../lib/workspaceContext";
@@ -8,6 +11,7 @@ import { useWorkspace } from "../lib/workspaceContext";
 const navItems = [
   { path: "/", label: "Overview" },
   { path: "/customers", label: "Customers" },
+  { path: "/workflows", label: "Workflows" },
   { path: "/kyc-review", label: "KYC Review" },
   { path: "/scenarios", label: "Scenarios" },
   { path: "/settings", label: "Settings" },
@@ -22,7 +26,9 @@ const initialsOf = (name: string) =>
 
 export const Layout = () => {
   const location = useLocation();
-  const { user } = useWorkspace();
+  const { user, workspaces, organization, role } = useWorkspace();
+  const hasWorkspaces = workspaces.length > 0;
+  const canCreate = role === "owner" || role === "admin";
 
   const handleSignOut = async () => {
     await signOut();
@@ -81,10 +87,56 @@ export const Layout = () => {
       </aside>
 
       <main className="flex-1 overflow-auto">
-        <Outlet />
+        {hasWorkspaces ? (
+          <Outlet />
+        ) : (
+          <NoWorkspacesView
+            orgName={organization.name}
+            canCreate={canCreate}
+          />
+        )}
       </main>
 
       <CommandPalette />
+    </div>
+  );
+};
+
+const NoWorkspacesView = ({
+  orgName,
+  canCreate,
+}: {
+  orgName: string;
+  canCreate: boolean;
+}) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="flex h-full items-center justify-center p-8">
+      <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center max-w-md w-full">
+        <div className="flex justify-center mb-4 text-primary-600">
+          <FolderPlus size={48} strokeWidth={1.5} />
+        </div>
+        <h1 className="text-xl font-bold text-gray-900 mb-2">
+          {canCreate ? "Create your first workspace" : "No workspaces yet"}
+        </h1>
+        <p className="text-sm text-gray-500 mb-6">
+          {canCreate
+            ? `${orgName} doesn't have any workspaces yet. Create one to start building workflows, reviewing customers, and configuring scenarios.`
+            : `${orgName} doesn't have any workspaces yet, and your role doesn't allow you to create one. Ask an owner or admin to set one up.`}
+        </p>
+        {canCreate && (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="inline-flex items-center gap-1.5 py-2 px-4 bg-primary-200 hover:bg-primary-300 text-primary-800 font-medium rounded-xl text-sm shadow-sm"
+          >
+            <FolderPlus size={16} />
+            New workspace
+          </button>
+        )}
+        <NewWorkspaceModal open={open} onClose={() => setOpen(false)} />
+      </div>
     </div>
   );
 };

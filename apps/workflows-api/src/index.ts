@@ -12,7 +12,7 @@ const rabbitMQ = createRabbitMQClient({ url: env.RABBITMQ_URL, logger });
 await rabbitMQ.connect();
 await migrateDB({ db, logger });
 
-const app = createWorkflowsApi({ db, logger, rabbitMQ });
+const app = await createWorkflowsApi({ db, logger, rabbitMQ });
 
 logger.info({ msg: "Workflows API started", port: 3004 });
 

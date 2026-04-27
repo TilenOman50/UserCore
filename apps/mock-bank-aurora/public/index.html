@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aurora Bank — Open an account</title>
+    <style>
+      :root {
+        --aurora-primary: #2563eb;
+        --aurora-bg: #eff6ff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        margin: 0;
+        background: var(--aurora-bg);
+        color: #0f172a;
+      }
+      header {
+        background: white;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 16px 32px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .logo {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: var(--aurora-primary);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+      }
+      h1 {
+        font-size: 18px;
+        margin: 0;
+      }
+      main {
+        max-width: 1100px;
+        margin: 48px auto;
+        padding: 0 24px;
+        display: grid;
+        grid-template-columns: 1fr 480px;
+        gap: 48px;
+      }
+      .pitch h2 {
+        font-size: 32px;
+        line-height: 1.2;
+        margin: 0 0 16px;
+      }
+      .pitch p {
+        color: #475569;
+        line-height: 1.6;
+      }
+      .widget-wrapper {
+        display: flex;
+        justify-content: center;
+      }
+      footer {
+        text-align: center;
+        padding: 32px;
+        color: #94a3b8;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo">A</div>
+      <h1>Aurora Bank</h1>
+    </header>
+    <main>
+      <section class="pitch">
+        <h2>Open your Aurora account in minutes.</h2>
+        <p>
+          Aurora is a digital bank for European residents. Verify your identity
+          to finish opening your account — it usually takes under three minutes.
+        </p>
+      </section>
+      <div class="widget-wrapper" id="usercore-widget"></div>
+    </main>
+    <footer>Powered by UserCore</footer>
+
+    <script src="../../widget/dist-sdk/usercore-widget.js"></script>
+    <script>
+      window.UserCore.mount(document.getElementById("usercore-widget"), {
+        workspaceId: "workspace_aurora_demo",
+        organizationId: "organization_aurora_demo",
+        customerId: "customer_" + Math.random().toString(36).slice(2, 10),
+        onComplete: (status) => {
+          console.log("Aurora KYC:", status);
+        },
+      });
+    </script>
+  </body>
+</html>

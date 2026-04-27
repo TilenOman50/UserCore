@@ -1,13 +1,14 @@
 import { eq } from "drizzle-orm";
 
 import type { Logger } from "@usercore/logger";
+import type {
+  ScenarioActionConfig,
+  ScenarioEvaluation,
+} from "@usercore/shared-types";
+import { emptyEvaluation } from "@usercore/shared-types";
 
 import type { Database } from "../../db/db";
-import {
-  ScenarioActionTable,
-  ScenarioRuleTable,
-  ScenarioTable,
-} from "../../db/schema.db";
+import { ScenarioTable } from "../../db/schema.db";
 
 export const createScenarioRepository = (props: {
   db: Database;
@@ -28,25 +29,31 @@ export const createScenarioRepository = (props: {
       .where(eq(ScenarioTable.workspaceId, workspaceId));
   };
 
-  const findActiveByWorkspaceId = async (workspaceId: string) => {
-    return db
-      .select()
-      .from(ScenarioTable)
-      .where(eq(ScenarioTable.workspaceId, workspaceId));
-  };
-
   const create = async (data: {
     workspaceId: string;
     name: string;
     description?: string;
+    createdBy?: string;
   }) => {
-    const [scenario] = await db.insert(ScenarioTable).values(data).returning();
+    const [scenario] = await db
+      .insert(ScenarioTable)
+      .values({
+        ...data,
+        evaluation: emptyEvaluation(),
+        actions: [],
+      })
+      .returning();
     return scenario;
   };
 
   const update = async (
     id: string,
-    data: { name?: string; description?: string; isActive?: string },
+    data: Partial<{
+      name: string;
+      description: string | null;
+      evaluation: ScenarioEvaluation;
+      actions: ScenarioActionConfig[];
+    }>,
   ) => {
     const [scenario] = await db
       .update(ScenarioTable)
@@ -60,58 +67,12 @@ export const createScenarioRepository = (props: {
     await db.delete(ScenarioTable).where(eq(ScenarioTable.id, id));
   };
 
-  const findRulesByScenarioId = async (scenarioId: string) => {
-    return db
-      .select()
-      .from(ScenarioRuleTable)
-      .where(eq(ScenarioRuleTable.scenarioId, scenarioId));
-  };
-
-  const createRule = async (data: {
-    scenarioId: string;
-    field: string;
-    operator: typeof ScenarioRuleTable.$inferInsert.operator;
-    value: string;
-  }) => {
-    const [rule] = await db.insert(ScenarioRuleTable).values(data).returning();
-    return rule;
-  };
-
-  const deleteRule = async (id: string) => {
-    await db.delete(ScenarioRuleTable).where(eq(ScenarioRuleTable.id, id));
-  };
-
-  const findActionsByScenarioId = async (scenarioId: string) => {
-    return db
-      .select()
-      .from(ScenarioActionTable)
-      .where(eq(ScenarioActionTable.scenarioId, scenarioId));
-  };
-
-  const createAction = async (data: {
-    scenarioId: string;
-    actionType: typeof ScenarioActionTable.$inferInsert.actionType;
-    config?: Record<string, unknown>;
-  }) => {
-    const [action] = await db
-      .insert(ScenarioActionTable)
-      .values(data)
-      .returning();
-    return action;
-  };
-
   return {
     findById,
     findByWorkspaceId,
-    findActiveByWorkspaceId,
     create,
     update,
     deleteById,
-    findRulesByScenarioId,
-    createRule,
-    deleteRule,
-    findActionsByScenarioId,
-    createAction,
   };
 };
 

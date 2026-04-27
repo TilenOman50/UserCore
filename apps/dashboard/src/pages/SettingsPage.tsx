@@ -1,10 +1,11 @@
 import { useSearchParams } from "react-router-dom";
 
 import { MembersTab } from "../features/settings/MembersTab";
+import { PlanTab } from "../features/settings/PlanTab";
 import { WorkspaceTab } from "../features/settings/WorkspaceTab";
 import { useWorkspace } from "../lib/workspaceContext";
 
-type Tab = "workspace" | "members";
+type Tab = "workspace" | "members" | "plan";
 
 export const SettingsPage = () => {
   const { role } = useWorkspace();
@@ -13,7 +14,11 @@ export const SettingsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
   const tab: Tab =
-    requestedTab === "members" && canManageMembers ? "members" : "workspace";
+    requestedTab === "members" && canManageMembers
+      ? "members"
+      : requestedTab === "plan"
+        ? "plan"
+        : "workspace";
 
   const setTab = (next: Tab) => {
     if (next === "workspace") {
@@ -27,6 +32,7 @@ export const SettingsPage = () => {
   const tabs = [
     { id: "workspace" as const, label: "Workspace" },
     ...(canManageMembers ? [{ id: "members" as const, label: "Members" }] : []),
+    { id: "plan" as const, label: "Plan" },
   ];
 
   return (
@@ -61,6 +67,8 @@ export const SettingsPage = () => {
 
       {tab === "members" && canManageMembers ? (
         <MembersTab />
+      ) : tab === "plan" ? (
+        <PlanTab />
       ) : (
         <WorkspaceTab />
       )}

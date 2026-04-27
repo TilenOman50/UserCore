@@ -1,5 +1,8 @@
 export const AUTH_API_URL = "http://localhost:3001";
 export const TMS_API_URL = "http://localhost:3002";
+export const IDENTITY_API_URL = "http://localhost:3003";
+export const WORKFLOWS_API_URL = "http://localhost:3004";
+export const SCENARIOS_API_URL = "http://localhost:3005";
 
 export const apiFetch = async <T>(
   url: string,

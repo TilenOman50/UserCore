@@ -2,6 +2,8 @@ import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 
+import type { Plan } from "@usercore/shared-types";
+
 import { apiFetch, AUTH_API_URL } from "./api";
 
 export type CurrentUser = {
@@ -14,6 +16,7 @@ export type CurrentOrganization = {
   id: string;
   name: string;
   slug: string;
+  plan: Plan;
 };
 
 export type CurrentWorkspace = {
@@ -30,6 +33,12 @@ export type WorkspaceListItem = CurrentWorkspace & {
 export type OrganizationListItem = CurrentOrganization & {
   role: string;
   isActive: boolean;
+};
+
+// Convenience hook so call-sites don't have to drill `organization.plan`.
+export const useCurrentPlan = (): Plan => {
+  const { organization } = useWorkspace();
+  return organization.plan;
 };
 
 export type MeResponse = {

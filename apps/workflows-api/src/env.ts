@@ -15,6 +15,9 @@ const EnvSchema = z.object({
   MINIO_ACCESS_KEY: z.string().default("usercore"),
   MINIO_SECRET_KEY: z.string().default("usercore123"),
   MINIO_BUCKET: z.string().default("kyc-documents"),
+  // Used to look up an organization's plan when enforcing per-org quotas
+  // (e.g. the verifications-per-month hard cap on session creation).
+  AUTH_API_URL: z.string().default("http://localhost:3001"),
 });
 
 export const env = EnvSchema.parse(process.env);
