@@ -1,8 +1,8 @@
 import type { Logger } from "@usercore/logger";
 import type { ProviderShortName } from "@usercore/shared-types";
 
-import type { WorkflowStepsRepository } from "../workflowSteps/workflowStepsRepository";
 import type { WorkflowsService } from "../workflows/workflowsService";
+import type { WorkflowStepsRepository } from "../workflowSteps/workflowStepsRepository";
 import type { AmlScreeningRepository } from "./amlScreeningRepository";
 
 // AML screening only makes sense behind a provider — there's no in-house

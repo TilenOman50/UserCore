@@ -12,20 +12,29 @@ export type ComplyAdvantageSearchInput = {
   clientRef: string;
   fuzziness?: number;
   birthYear?: number;
-  types?: Array<"sanction" | "warning" | "fitness-probity" | "pep" | "adverse-media">;
+  types?: Array<
+    "sanction" | "warning" | "fitness-probity" | "pep" | "adverse-media"
+  >;
 };
 
 export type ComplyAdvantageSearchOutput = {
   id: number;
   ref: string;
-  matchStatus: "no_match" | "potential_match" | "false_positive" | "true_positive";
+  matchStatus:
+    | "no_match"
+    | "potential_match"
+    | "false_positive"
+    | "true_positive";
   riskLevel: "unknown" | "low" | "medium" | "high";
   totalHits: number;
   raw: Record<string, unknown>;
 };
 
 export const createComplyAdvantageClient = (props: {
-  env: Pick<typeof Env, "COMPLY_ADVANTAGE_API_KEY" | "COMPLY_ADVANTAGE_BASE_URL">;
+  env: Pick<
+    typeof Env,
+    "COMPLY_ADVANTAGE_API_KEY" | "COMPLY_ADVANTAGE_BASE_URL"
+  >;
   logger: Logger;
 }) => {
   const { env, logger } = props;

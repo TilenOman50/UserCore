@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { usePlan, UPGRADE_HINT } from "../../lib/hooks/usePlan";
+import { UPGRADE_HINT, usePlan } from "../../lib/hooks/usePlan";
 import { useSwitchWorkspace } from "../../lib/hooks/useWorkspaceMutations";
 import { useWorkspace } from "../../lib/workspaceContext";
 import { NewWorkspaceModal } from "./NewWorkspaceModal";
@@ -13,8 +13,7 @@ export const WorkspaceSwitcher = () => {
   const { workspaceLimitReached } = usePlan();
 
   const atLimit = workspaceLimitReached(workspaces.length);
-  const canCreateWorkspace =
-    (role === "owner" || role === "admin") && !atLimit;
+  const canCreateWorkspace = (role === "owner" || role === "admin") && !atLimit;
 
   const [open, setOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);

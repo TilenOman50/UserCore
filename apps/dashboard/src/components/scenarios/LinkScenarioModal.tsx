@@ -1,6 +1,5 @@
-import { Plus, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-
+import { Plus, Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -194,10 +193,7 @@ export const LinkScenarioModal = ({
               {filtered.map((s) => {
                 const linked = !!linkedScenarioIds[s.id];
                 return (
-                  <div
-                    key={s.id}
-                    className="flex items-start gap-3 py-3"
-                  >
+                  <div key={s.id} className="flex items-start gap-3 py-3">
                     <div className="flex-1 min-w-0">
                       <button
                         type="button"
@@ -215,10 +211,7 @@ export const LinkScenarioModal = ({
                         </div>
                       )}
                     </div>
-                    <Toggle
-                      on={linked}
-                      onClick={() => handleToggle(s.id)}
-                    />
+                    <Toggle on={linked} onClick={() => handleToggle(s.id)} />
                   </div>
                 );
               })}

@@ -25,11 +25,14 @@ export const IdenfyHandoffStep = (props: IdenfyHandoffStepProps) => {
     let cancelled = false;
     const start = async () => {
       try {
-        const res = await fetch(`${providersApiUrl}/providers/idenfy/sessions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ workflowSessionId, customerId }),
-        });
+        const res = await fetch(
+          `${providersApiUrl}/providers/idenfy/sessions`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ workflowSessionId, customerId }),
+          },
+        );
         if (!res.ok) {
           const text = await res.text().catch(() => "");
           throw new Error(text || `iDenfy session failed (${res.status})`);
@@ -40,7 +43,9 @@ export const IdenfyHandoffStep = (props: IdenfyHandoffStepProps) => {
         setStatus("ready");
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Could not start session");
+        setError(
+          err instanceof Error ? err.message : "Could not start session",
+        );
         setStatus("error");
       }
     };
@@ -82,8 +87,7 @@ export const IdenfyHandoffStep = (props: IdenfyHandoffStepProps) => {
           Continue verification
         </h2>
         <p className="text-sm text-gray-500 mt-0.5">
-          You'll complete document and face verification in our provider's
-          flow.
+          You'll complete document and face verification in our provider's flow.
         </p>
       </div>
       <a

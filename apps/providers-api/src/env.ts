@@ -18,7 +18,9 @@ const EnvSchema = z.object({
 
   // ComplyAdvantage — AML / sanctions / PEP / adverse media
   COMPLY_ADVANTAGE_API_KEY: z.string().optional(),
-  COMPLY_ADVANTAGE_BASE_URL: z.string().default("https://api.complyadvantage.com"),
+  COMPLY_ADVANTAGE_BASE_URL: z
+    .string()
+    .default("https://api.complyadvantage.com"),
 
   // IPQualityScore — fraud / IP intelligence
   IPQS_API_KEY: z.string().optional(),

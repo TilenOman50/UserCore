@@ -22,8 +22,7 @@ export const createIdentityWidgetService = (props: {
   };
 
   const getForWorkflow = async (workflowId: string) => {
-    const widget =
-      await identityWidgetRepository.findByWorkflowId(workflowId);
+    const widget = await identityWidgetRepository.findByWorkflowId(workflowId);
     if (!widget) return null;
     const [logoUrl, coverUrl] = await Promise.all([
       widget.logoS3ObjectKey

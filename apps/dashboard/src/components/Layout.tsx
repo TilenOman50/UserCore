@@ -1,5 +1,5 @@
-import { FolderPlus } from "lucide-react";
 import { useState } from "react";
+import { FolderPlus } from "lucide-react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 import { CommandPalette } from "../features/command-palette/CommandPalette";
@@ -90,10 +90,7 @@ export const Layout = () => {
         {hasWorkspaces ? (
           <Outlet />
         ) : (
-          <NoWorkspacesView
-            orgName={organization.name}
-            canCreate={canCreate}
-          />
+          <NoWorkspacesView orgName={organization.name} canCreate={canCreate} />
         )}
       </main>
 

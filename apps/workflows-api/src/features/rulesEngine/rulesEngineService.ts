@@ -1,7 +1,7 @@
 import type { Logger } from "@usercore/logger";
 
-import type { WorkflowStepsRepository } from "../workflowSteps/workflowStepsRepository";
 import type { WorkflowsService } from "../workflows/workflowsService";
+import type { WorkflowStepsRepository } from "../workflowSteps/workflowStepsRepository";
 import type { RulesEngineRepository } from "./rulesEngineRepository";
 
 // Rules-engine step is valid when at least one scenario from scenarios-api is

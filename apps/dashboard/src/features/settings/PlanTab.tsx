@@ -27,13 +27,11 @@ const ROWS: FeatureRow[] = [
   },
   {
     label: "AML screening",
-    render: (f) =>
-      f.providers["aml-screening"] ? "ComplyAdvantage" : "—",
+    render: (f) => (f.providers["aml-screening"] ? "ComplyAdvantage" : "—"),
   },
   {
     label: "Fraud detection",
-    render: (f) =>
-      f.providers["fraud-detection"] ? "IPQualityScore" : "—",
+    render: (f) => (f.providers["fraud-detection"] ? "IPQualityScore" : "—"),
   },
   {
     label: "Workflows per workspace",
@@ -97,9 +95,7 @@ export const PlanTab = () => {
           <h2 className="text-2xl font-bold text-gray-900">
             {PLAN_LABELS[currentPlan]}
           </h2>
-          <span className="text-sm text-gray-500">
-            for {organization.name}
-          </span>
+          <span className="text-sm text-gray-500">for {organization.name}</span>
         </div>
         <p className="text-sm text-gray-500 mt-2">
           Plans are managed by the UserCore team. To upgrade or downgrade,

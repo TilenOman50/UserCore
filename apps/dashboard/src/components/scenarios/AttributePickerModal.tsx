@@ -1,9 +1,9 @@
-import { Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { Search, X } from "lucide-react";
 
 import {
-  type AttributeDefinition,
   SCENARIO_ATTRIBUTES,
+  type AttributeDefinition,
 } from "@usercore/shared-types";
 
 const TYPE_BADGE_COLORS: Record<AttributeDefinition["type"], string> = {

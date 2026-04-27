@@ -16,7 +16,11 @@ const QUEUE = "providers-api.check-requested";
 
 type DispatchHandler = (
   request: ProviderCheckRequestedPayload,
-) => Promise<{ status: WorkflowSessionStatus; rawPayload: Record<string, unknown>; message?: string }>;
+) => Promise<{
+  status: WorkflowSessionStatus;
+  rawPayload: Record<string, unknown>;
+  message?: string;
+}>;
 
 const notImplemented: DispatchHandler = async (req) => {
   throw new Error(

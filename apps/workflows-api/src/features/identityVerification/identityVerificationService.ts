@@ -1,8 +1,8 @@
 import type { Logger } from "@usercore/logger";
 import type { ProviderShortName } from "@usercore/shared-types";
 
-import type { WorkflowStepsRepository } from "../workflowSteps/workflowStepsRepository";
 import type { WorkflowsService } from "../workflows/workflowsService";
+import type { WorkflowStepsRepository } from "../workflowSteps/workflowStepsRepository";
 import type { IdentityVerificationRepository } from "./identityVerificationRepository";
 
 export const createIdentityVerificationService = (props: {
@@ -43,7 +43,9 @@ export const createIdentityVerificationService = (props: {
       provider: data.provider ?? null,
       valid: false,
     });
-    await identityVerificationRepository.createStepWithSubSteps(workflowStep!.id);
+    await identityVerificationRepository.createStepWithSubSteps(
+      workflowStep!.id,
+    );
     await workflowsService.recomputeValidity(data.workflowId);
     return workflowStep;
   };
@@ -52,8 +54,9 @@ export const createIdentityVerificationService = (props: {
     const step =
       await identityVerificationRepository.findByWorkflowStepId(workflowStepId);
     if (!step) return null;
-    const subSteps =
-      await identityVerificationRepository.findSubStepsByStepId(step.id);
+    const subSteps = await identityVerificationRepository.findSubStepsByStepId(
+      step.id,
+    );
     return { step, subSteps };
   };
 
@@ -98,8 +101,7 @@ export const createIdentityVerificationService = (props: {
   };
 
   const removeStep = async (workflowStepId: string) => {
-    const step =
-      await workflowStepsRepository.findById(workflowStepId);
+    const step = await workflowStepsRepository.findById(workflowStepId);
     if (!step) return;
     await workflowStepsRepository.remove(workflowStepId);
     await workflowsService.recomputeValidity(step.workflowId);

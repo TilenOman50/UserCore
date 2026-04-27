@@ -1,8 +1,12 @@
-import { ChevronLeft, ChevronRight, Plus, Telescope } from "lucide-react";
 import { useState } from "react";
+import { ChevronLeft, ChevronRight, Plus, Telescope } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import { useCanManageConfig, usePlan, UPGRADE_HINT } from "../lib/hooks/usePlan";
+import {
+  UPGRADE_HINT,
+  useCanManageConfig,
+  usePlan,
+} from "../lib/hooks/usePlan";
 import {
   useCreateWorkflow,
   useWorkflowsPaginated,
@@ -68,10 +72,7 @@ export const WorkflowsPage = () => {
       {query.isLoading ? (
         <div className="text-sm text-gray-500">Loading workflows…</div>
       ) : total === 0 ? (
-        <EmptyState
-          onCreate={() => setCreateOpen(true)}
-          canEdit={canEdit}
-        />
+        <EmptyState onCreate={() => setCreateOpen(true)} canEdit={canEdit} />
       ) : (
         <>
           <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
@@ -259,7 +260,9 @@ const EmptyState = ({
       type="button"
       onClick={() => canEdit && onCreate()}
       disabled={!canEdit}
-      title={!canEdit ? "Only owners and admins can create workflows." : undefined}
+      title={
+        !canEdit ? "Only owners and admins can create workflows." : undefined
+      }
       className="inline-flex items-center gap-1.5 py-2 px-4 bg-white border border-gray-300 hover:border-primary-400 hover:bg-primary-50 text-gray-700 font-medium rounded-xl text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-300 disabled:hover:bg-white"
     >
       <Plus size={16} />

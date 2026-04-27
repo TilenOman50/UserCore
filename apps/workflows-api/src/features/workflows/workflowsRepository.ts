@@ -26,10 +26,7 @@ export const createWorkflowsRepository = (props: {
     verificationMode?: WorkflowVerificationMode;
     isDefault?: boolean;
   }) => {
-    const [workflow] = await db
-      .insert(WorkflowTable)
-      .values(data)
-      .returning();
+    const [workflow] = await db.insert(WorkflowTable).values(data).returning();
     return workflow;
   };
 

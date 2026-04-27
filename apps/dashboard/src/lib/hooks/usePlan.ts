@@ -17,10 +17,7 @@ export const usePlan = () => {
     plan: organization.plan,
     features,
     isProviderAllowed: (stepType: WorkflowStepType): boolean => {
-      if (
-        stepType === "duplicate-detection" ||
-        stepType === "rules-engine"
-      ) {
+      if (stepType === "duplicate-detection" || stepType === "rules-engine") {
         return true;
       }
       return features.providers[stepType];

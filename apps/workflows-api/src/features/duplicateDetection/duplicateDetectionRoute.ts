@@ -2,10 +2,7 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 
 import { ProviderShortNameEnum } from "@usercore/shared-types";
 
-import type {
-  DuplicateDetectionStep,
-  WorkflowStep,
-} from "../../db/schema.db";
+import type { DuplicateDetectionStep, WorkflowStep } from "../../db/schema.db";
 import type { ContextVariables } from "../../types";
 import type { DuplicateDetectionService } from "./duplicateDetectionService";
 

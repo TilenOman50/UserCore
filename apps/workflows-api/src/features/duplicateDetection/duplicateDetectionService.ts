@@ -1,7 +1,7 @@
 import type { Logger } from "@usercore/logger";
 
-import type { WorkflowStepsRepository } from "../workflowSteps/workflowStepsRepository";
 import type { WorkflowsService } from "../workflows/workflowsService";
+import type { WorkflowStepsRepository } from "../workflowSteps/workflowStepsRepository";
 import type { DuplicateDetectionRepository } from "./duplicateDetectionRepository";
 
 // Duplicate detection runs locally against existing customer profiles in the

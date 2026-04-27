@@ -1,14 +1,18 @@
-import { ChevronLeft, ChevronRight, Plus, Workflow } from "lucide-react";
 import { useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, Plus, Workflow } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import { useCanManageConfig, usePlan, UPGRADE_HINT } from "../lib/hooks/usePlan";
 import {
-  type Scenario,
-  type ScenarioLinkMap,
+  UPGRADE_HINT,
+  useCanManageConfig,
+  usePlan,
+} from "../lib/hooks/usePlan";
+import {
   useCreateScenario,
   useScenarioLinks,
   useScenariosList,
+  type Scenario,
+  type ScenarioLinkMap,
 } from "../lib/hooks/useScenarios";
 import { useWorkspace } from "../lib/workspaceContext";
 

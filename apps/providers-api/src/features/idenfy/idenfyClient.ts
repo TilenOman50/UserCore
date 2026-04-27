@@ -31,7 +31,10 @@ export type IdenfyStartSessionOutput = {
 };
 
 export const createIdenfyClient = (props: {
-  env: Pick<typeof Env, "IDENFY_API_KEY" | "IDENFY_API_SECRET" | "IDENFY_BASE_URL">;
+  env: Pick<
+    typeof Env,
+    "IDENFY_API_KEY" | "IDENFY_API_SECRET" | "IDENFY_BASE_URL"
+  >;
   logger: Logger;
 }) => {
   const { env, logger } = props;

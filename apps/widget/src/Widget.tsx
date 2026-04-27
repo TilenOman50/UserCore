@@ -34,10 +34,7 @@ type SubStep = {
   enabled: boolean;
 };
 
-const apiJson = async <T,>(
-  url: string,
-  init?: RequestInit,
-): Promise<T> => {
+const apiJson = async <T,>(url: string, init?: RequestInit): Promise<T> => {
   const res = await fetch(url, {
     ...init,
     headers: {
@@ -63,7 +60,9 @@ export const Widget = (props: WidgetProps) => {
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [identityProvider, setIdentityProvider] = useState<string | null>(null);
-  const [enabledSubSteps, setEnabledSubSteps] = useState<Set<string>>(new Set());
+  const [enabledSubSteps, setEnabledSubSteps] = useState<Set<string>>(
+    new Set(),
+  );
   const [step, setStep] = useState<Step>("form");
 
   useEffect(() => {
@@ -92,7 +91,9 @@ export const Widget = (props: WidgetProps) => {
           );
           if (cancelled) return;
           setEnabledSubSteps(
-            new Set(detail.subSteps.filter((s) => s.enabled).map((s) => s.type)),
+            new Set(
+              detail.subSteps.filter((s) => s.enabled).map((s) => s.type),
+            ),
           );
         }
 

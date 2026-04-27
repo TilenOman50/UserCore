@@ -38,7 +38,9 @@ export const FormStep = (props: FormStepProps) => {
     setError(null);
 
     try {
-      const attributes = (Object.entries(form) as Array<[keyof FormData, string]>)
+      const attributes = (
+        Object.entries(form) as Array<[keyof FormData, string]>
+      )
         .filter(([, value]) => value !== "")
         .map(([key, value]) => ({
           attribute: `contact_information.${key}`,

@@ -49,10 +49,7 @@ export const createRulesEngineRepository = (props: {
   }) => {
     const existing = await db.query.RulesEngineScenarioTable.findFirst({
       where: and(
-        eq(
-          RulesEngineScenarioTable.rulesEngineStepId,
-          data.rulesEngineStepId,
-        ),
+        eq(RulesEngineScenarioTable.rulesEngineStepId, data.rulesEngineStepId),
         eq(
           RulesEngineScenarioTable.externalScenarioId,
           data.externalScenarioId,

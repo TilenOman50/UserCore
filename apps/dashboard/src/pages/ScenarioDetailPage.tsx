@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import {
   AlertOctagon,
   ArrowLeft,
@@ -8,38 +9,31 @@ import {
   TagIcon,
   Trash2,
 } from "lucide-react";
-
-import { ConfirmDialog } from "../components/ConfirmDialog";
-import { AttributePickerModal } from "../components/scenarios/AttributePickerModal";
-import { MultiSelect } from "../components/ui/MultiSelect";
-import { SaveIndicator } from "../components/ui/SaveIndicator";
-import { Select } from "../components/ui/Select";
-import {
-  type ComponentType,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import {
-  type AttributeDefinition,
   COUNTRY_NAME_BY_CODE,
   CUSTOMER_RISK_LEVELS,
   CUSTOMER_STATUS_VALUES,
+  emptyEvaluation,
+  OPERATORS_BY_ATTRIBUTE_TYPE,
+  SCENARIO_ATTRIBUTES,
+  type AttributeDefinition,
   type CustomerRiskLevel,
   type CustomerStatus,
-  emptyEvaluation,
   type IsoCountryCode,
-  OPERATORS_BY_ATTRIBUTE_TYPE,
   type RuleOperator,
-  SCENARIO_ATTRIBUTES,
   type ScenarioActionConfig,
   type ScenarioActionType,
   type ScenarioCondition,
   type ScenarioEvaluation,
 } from "@usercore/shared-types";
 
+import { ConfirmDialog } from "../components/ConfirmDialog";
+import { AttributePickerModal } from "../components/scenarios/AttributePickerModal";
+import { MultiSelect } from "../components/ui/MultiSelect";
+import { SaveIndicator } from "../components/ui/SaveIndicator";
+import { Select } from "../components/ui/Select";
 import { READ_ONLY_HINT, useCanManageConfig } from "../lib/hooks/usePlan";
 import {
   useDeleteScenario,
@@ -99,9 +93,8 @@ export const ScenarioDetailPage = () => {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [evaluation, setEvaluation] = useState<ScenarioEvaluation>(
-    emptyEvaluation(),
-  );
+  const [evaluation, setEvaluation] =
+    useState<ScenarioEvaluation>(emptyEvaluation());
   const [actions, setActions] = useState<ScenarioActionConfig[]>([]);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -136,7 +129,8 @@ export const ScenarioDetailPage = () => {
         scenarioId: server.id,
         patch: {
           name: trimmedName.length > 0 ? trimmedName : undefined,
-          description: trimmedDescription.length > 0 ? trimmedDescription : null,
+          description:
+            trimmedDescription.length > 0 ? trimmedDescription : null,
           evaluation,
           actions,
         },
@@ -208,9 +202,7 @@ export const ScenarioDetailPage = () => {
               className="mt-1 w-full text-sm text-gray-500 bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-primary-400 focus:outline-none focus:bg-primary-50/30 px-1 -ml-1 resize-none transition-colors disabled:hover:border-transparent disabled:cursor-not-allowed"
             />
             <div className="mt-3 flex items-center gap-2 text-xs">
-              <LinkedWorkflowsBadge
-                links={linksQuery.data?.[s.id] ?? []}
-              />
+              <LinkedWorkflowsBadge links={linksQuery.data?.[s.id] ?? []} />
               {canEdit && <SaveIndicator status={saveStatus} />}
             </div>
           </div>
@@ -341,10 +333,7 @@ const QueryGroupCard = ({
   const addCondition = () =>
     onChange({
       ...group,
-      queries: [
-        ...group.queries,
-        { attribute: "", operator: "eq", value: "" },
-      ],
+      queries: [...group.queries, { attribute: "", operator: "eq", value: "" }],
     });
 
   const updateCondition = (index: number, next: ScenarioCondition) => {
@@ -378,7 +367,9 @@ const QueryGroupCard = ({
   return (
     <div
       className={`rounded-2xl border bg-white p-5 ${
-        isRoot ? "border-gray-200" : "border-gray-200 border-l-4 border-l-primary-300"
+        isRoot
+          ? "border-gray-200"
+          : "border-gray-200 border-l-4 border-l-primary-300"
       }`}
     >
       <div className="flex items-center justify-between mb-3">
@@ -524,14 +515,14 @@ const ConditionRow = ({
         onChange={(value) => onChange({ ...condition, value })}
       />
       {canEdit && (
-      <button
-        type="button"
-        onClick={onRemove}
-        className="ml-auto text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50"
-        aria-label="Remove condition"
-      >
-        <Trash2 size={14} />
-      </button>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="ml-auto text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50"
+          aria-label="Remove condition"
+        >
+          <Trash2 size={14} />
+        </button>
       )}
     </div>
   );
@@ -743,10 +734,7 @@ const ActionsEditor = ({
           return "";
       }
     })();
-    onChange([
-      ...actions,
-      { type, value: defaultValue, enabled: true },
-    ]);
+    onChange([...actions, { type, value: defaultValue, enabled: true }]);
   };
 
   return (

@@ -95,10 +95,7 @@ export const mapIdenfyToAttributes = (
       ["identity_verification.document_personal_code", data.docPersonalCode],
       ["identity_verification.document_type", data.docType],
       ["identity_verification.document_sex", data.docSex],
-      [
-        "identity_verification.document_nationality",
-        data.docNationality,
-      ],
+      ["identity_verification.document_nationality", data.docNationality],
       [
         "identity_verification.document_issuing_country",
         data.docIssuingCountry,
@@ -114,10 +111,7 @@ export const mapIdenfyToAttributes = (
     }
     const dateFields: Array<[string, string | undefined]> = [
       ["identity_verification.document_expiry", data.docExpiry],
-      [
-        "identity_verification.document_date_of_issue",
-        data.docDateOfIssue,
-      ],
+      ["identity_verification.document_date_of_issue", data.docDateOfIssue],
       ["identity_verification.date_of_birth", data.docDob],
     ];
     for (const [attribute, value] of dateFields) {

@@ -6,13 +6,13 @@ import { requestId } from "hono/request-id";
 import type { Logger } from "@usercore/logger";
 import type { RabbitMQClient } from "@usercore/rabbitmq";
 
-import { registerProviderDispatcher } from "./features/dispatcher/dispatcherService";
+import { env } from "./env";
 import { createComplyAdvantageClient } from "./features/complyAdvantage/complyAdvantageClient";
+import { registerProviderDispatcher } from "./features/dispatcher/dispatcherService";
 import { createIdenfyClient } from "./features/idenfy/idenfyClient";
 import { createIdenfySessionRouter } from "./features/idenfy/idenfySessionRoute";
 import { createIdenfyWebhookRouter } from "./features/idenfy/idenfyWebhookRoute";
 import { createIpQualityScoreClient } from "./features/ipQualityScore/ipQualityScoreClient";
-import { env } from "./env";
 import type { ContextVariables } from "./types";
 
 const BASE_PATH = "/providers";
@@ -77,7 +77,5 @@ export const createProvidersApi = async (props: {
     return c.json({ error: err.message }, 500);
   });
 
-  return app
-    .route("/", idenfyWebhookRouter)
-    .route("/", idenfySessionRouter);
+  return app.route("/", idenfyWebhookRouter).route("/", idenfySessionRouter);
 };

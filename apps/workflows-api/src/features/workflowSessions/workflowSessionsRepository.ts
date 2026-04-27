@@ -45,20 +45,14 @@ export const createWorkflowSessionsRepository = (props: {
   }) => {
     return db.query.WorkflowSessionTable.findFirst({
       where: and(
-        eq(
-          WorkflowSessionTable.externalSessionId,
-          data.externalSessionId,
-        ),
+        eq(WorkflowSessionTable.externalSessionId, data.externalSessionId),
         eq(
           WorkflowSessionTable.externalSessionSource,
           data.externalSessionSource,
         ),
         eq(WorkflowSessionTable.workflowId, data.workflowId),
         eq(WorkflowSessionTable.customerId, data.customerId),
-        eq(
-          WorkflowSessionTable.verificationMode,
-          data.verificationMode,
-        ),
+        eq(WorkflowSessionTable.verificationMode, data.verificationMode),
       ),
     });
   };

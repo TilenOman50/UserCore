@@ -1,6 +1,8 @@
 import { nanoid } from "nanoid";
 import { z } from "zod";
 
+import { COUNTRIES } from "./countries.js";
+
 export {
   COUNTRIES,
   COUNTRY_NAME_BY_CODE,
@@ -8,7 +10,6 @@ export {
   iso2ToIso3,
   ISO2_TO_ISO3,
 } from "./countries.js";
-import { COUNTRIES } from "./countries.js";
 
 // ID generation — mirrors the platform's generateId pattern
 export const generateId = (prefix: string): string => {
@@ -423,7 +424,8 @@ const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
   ENTERPRISE: ENTERPRISE_FEATURES,
 };
 
-export const getPlanFeatures = (plan: Plan): PlanFeatures => PLAN_FEATURES[plan];
+export const getPlanFeatures = (plan: Plan): PlanFeatures =>
+  PLAN_FEATURES[plan];
 
 export const PLAN_LABELS: Record<Plan, string> = {
   STARTER: "Starter",

@@ -30,7 +30,11 @@ type IdenfyStatus = {
 
 const flattenIdenfyPayload = (
   rawPayload: Record<string, unknown>,
-): Array<{ attribute: string; value: string; attributeType: AttributeType }> => {
+): Array<{
+  attribute: string;
+  value: string;
+  attributeType: AttributeType;
+}> => {
   const out: Array<{
     attribute: string;
     value: string;

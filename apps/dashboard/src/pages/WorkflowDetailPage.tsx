@@ -1,3 +1,4 @@
+import { useEffect, useState, type ComponentType } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -18,37 +19,35 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
-import { type ComponentType, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { LinkScenarioModal } from "../components/scenarios/LinkScenarioModal";
 import { SaveIndicator } from "../components/ui/SaveIndicator";
 import {
+  UPGRADE_HINT,
   useCanManageConfig,
   usePlan,
-  UPGRADE_HINT,
 } from "../lib/hooks/usePlan";
 import { useScenariosList } from "../lib/hooks/useScenarios";
-import { useWorkspace } from "../lib/workspaceContext";
-
 import {
-  type IdentityVerificationSubStepType,
-  type ProviderShortName,
   useAddWorkflowStep,
   useDeleteWorkflow,
   useIdentityVerificationDetail,
   useRemoveWorkflowStep,
   useRulesEngineDetail,
   useSetIdentityProvider,
-  useUnlinkScenario,
   useSetStepProvider,
   useToggleSubStep,
+  useUnlinkScenario,
   useUpdateWorkflow,
   useWorkflow,
+  type IdentityVerificationSubStepType,
+  type ProviderShortName,
   type WorkflowStep,
   type WorkflowStepType,
 } from "../lib/hooks/useWorkflows";
+import { useWorkspace } from "../lib/workspaceContext";
 
 type IconComp = ComponentType<{ size?: number; className?: string }>;
 
@@ -107,8 +106,7 @@ const PROVIDER_OPTIONS: Record<
     {
       value: "idenfy",
       label: "iDenfy",
-      description:
-        "Document and face verification with automated decisioning.",
+      description: "Document and face verification with automated decisioning.",
     },
   ],
   "aml-screening": [
@@ -172,8 +170,7 @@ export const WorkflowDetailPage = () => {
       update.mutate({
         workflowId: server.id,
         patch: {
-          displayName:
-            trimmedName.length > 0 ? trimmedName : undefined,
+          displayName: trimmedName.length > 0 ? trimmedName : undefined,
           description:
             trimmedDescription.length > 0 ? trimmedDescription : null,
         },
@@ -187,7 +184,9 @@ export const WorkflowDetailPage = () => {
     return (
       <div className="px-8 py-8 max-w-5xl mx-auto">
         <div className="bg-white rounded-2xl border border-gray-200 p-8 text-sm text-gray-500">
-          {workflowQuery.isLoading ? "Loading workflow…" : "Workflow not found."}
+          {workflowQuery.isLoading
+            ? "Loading workflow…"
+            : "Workflow not found."}
         </div>
       </div>
     );
@@ -619,9 +618,7 @@ const RulesEngineDetail = ({
         onClick={() => canEdit && setPickerOpen(true)}
         disabled={!canEdit}
         title={
-          !canEdit
-            ? "Only owners and admins can link scenarios."
-            : undefined
+          !canEdit ? "Only owners and admins can link scenarios." : undefined
         }
         className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg border border-gray-300 bg-white hover:border-primary-400 hover:bg-primary-50 text-sm font-medium text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-300 disabled:hover:bg-white"
       >

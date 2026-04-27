@@ -5,13 +5,13 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Dropdown } from "../../components/Dropdown";
 import type { DropdownOption } from "../../components/Dropdown";
 import { Pagination } from "../../components/Pagination";
-import { usePlan, UPGRADE_HINT } from "../../lib/hooks/usePlan";
 import {
   useMembers,
   useRemoveMember,
   useUpdateMemberRole,
 } from "../../lib/hooks/useMembers";
 import type { Member, Role } from "../../lib/hooks/useMembers";
+import { UPGRADE_HINT, usePlan } from "../../lib/hooks/usePlan";
 import { useWorkspace } from "../../lib/workspaceContext";
 import { InviteMemberModal } from "./InviteMemberModal";
 import { MemberAccessModal } from "./MemberAccessModal";
@@ -108,9 +108,7 @@ export const MembersTab = () => {
   const { memberLimitReached: membersAtLimit } = usePlan();
 
   const [inviteOpen, setInviteOpen] = useState(false);
-  const memberLimitReached = data
-    ? membersAtLimit(data.total)
-    : false;
+  const memberLimitReached = data ? membersAtLimit(data.total) : false;
   const [accessTarget, setAccessTarget] = useState<Member | null>(null);
   const [removeTarget, setRemoveTarget] = useState<Member | null>(null);
 

@@ -9,10 +9,7 @@ export type WorkflowStepType =
   | "duplicate-detection"
   | "rules-engine";
 
-export type ProviderShortName =
-  | "idenfy"
-  | "complyAdvantage"
-  | "ipQualityScore";
+export type ProviderShortName = "idenfy" | "complyAdvantage" | "ipQualityScore";
 
 export type IdentityVerificationSubStepType =
   | "id-scan"
@@ -200,9 +197,7 @@ export const useDeleteWorkflow = () => {
   });
 };
 
-export const useIdentityVerificationDetail = (
-  workflowStepId: string | null,
-) =>
+export const useIdentityVerificationDetail = (workflowStepId: string | null) =>
   useQuery({
     queryKey: ["identity-verification", workflowStepId],
     queryFn: () =>

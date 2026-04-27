@@ -1,12 +1,12 @@
-import { Check, ChevronDown, Search } from "lucide-react";
 import {
-  type ReactNode,
   useEffect,
   useId,
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
+import { Check, ChevronDown, Search } from "lucide-react";
 
 export type SelectOption = {
   value: string;

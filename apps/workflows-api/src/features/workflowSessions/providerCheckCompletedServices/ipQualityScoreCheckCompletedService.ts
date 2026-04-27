@@ -9,7 +9,11 @@ import type { WorkflowSessionsService } from "../workflowSessionsService";
 
 const flattenIpQualityScorePayload = (
   rawPayload: Record<string, unknown>,
-): Array<{ attribute: string; value: string; attributeType: AttributeType }> => {
+): Array<{
+  attribute: string;
+  value: string;
+  attributeType: AttributeType;
+}> => {
   const out: Array<{
     attribute: string;
     value: string;

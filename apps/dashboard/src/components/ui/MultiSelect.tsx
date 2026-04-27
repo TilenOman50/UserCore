@@ -1,12 +1,12 @@
-import { Check, ChevronDown, Search, X } from "lucide-react";
 import {
-  type ReactNode,
   useEffect,
   useId,
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
+import { Check, ChevronDown, Search, X } from "lucide-react";
 
 import type { SelectOption, SelectOptionGroup } from "./Select";
 

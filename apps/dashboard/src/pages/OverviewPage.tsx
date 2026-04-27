@@ -52,10 +52,7 @@ export const OverviewPage = () => {
         ))}
       </div>
 
-      <VerificationsUsageCard
-        stats={usage.data}
-        isLoading={usage.isLoading}
-      />
+      <VerificationsUsageCard stats={usage.data} isLoading={usage.isLoading} />
 
       <div className="bg-white rounded-xl border border-gray-200 p-6 mt-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
@@ -83,7 +80,9 @@ const VerificationsUsageCard = ({
   }
 
   const unlimited = isUnlimited(stats.max);
-  const ratio = unlimited ? 0 : Math.min(1, stats.used / Math.max(1, stats.max));
+  const ratio = unlimited
+    ? 0
+    : Math.min(1, stats.used / Math.max(1, stats.max));
   const pct = Math.round(ratio * 100);
   const barColor =
     ratio >= 1

@@ -42,9 +42,7 @@ export class PlanLimitExceededError extends Error {
     public readonly used: number,
     public readonly max: number,
   ) {
-    super(
-      `Plan limit reached: ${limitType} (${used} / ${max} this month)`,
-    );
+    super(`Plan limit reached: ${limitType} (${used} / ${max} this month)`);
     this.name = "PlanLimitExceededError";
   }
 }
