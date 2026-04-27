@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { useCreateWorkspace } from "../../lib/hooks/useWorkspaceMutations";
 
@@ -9,6 +10,7 @@ export const NewWorkspaceModal = (props: {
   const { open, onClose } = props;
   const [name, setName] = useState("");
   const createWorkspace = useCreateWorkspace();
+  const navigate = useNavigate();
 
   if (!open) return null;
 
@@ -18,6 +20,7 @@ export const NewWorkspaceModal = (props: {
       await createWorkspace.mutateAsync(name);
       setName("");
       onClose();
+      navigate("/");
     } catch {
       // Error displayed below
     }

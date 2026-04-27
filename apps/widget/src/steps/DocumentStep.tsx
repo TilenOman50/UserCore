@@ -7,14 +7,14 @@ type DocumentStepProps = {
 };
 
 const DOCUMENT_TYPES = [
-  { value: "passport", label: "Passport" },
-  { value: "national_id", label: "National ID" },
-  { value: "drivers_license", label: "Driver's License" },
+  { value: "PASSPORT", label: "Passport" },
+  { value: "ID_CARD", label: "National ID" },
+  { value: "DRIVER_LICENSE", label: "Driver's License" },
 ];
 
 export const DocumentStep = (props: DocumentStepProps) => {
   const { workflowsApiUrl, sessionId, onComplete } = props;
-  const [documentType, setDocumentType] = useState("passport");
+  const [documentType, setDocumentType] = useState("PASSPORT");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,11 +41,28 @@ export const DocumentStep = (props: DocumentStepProps) => {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("documentType", documentType);
-
-      await fetch(
-        `${workflowsApiUrl}/workflows/kyc-sessions/${sessionId}/documents`,
+      const upload = await fetch(
+        `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(sessionId)}/files/document_front`,
         { method: "POST", body: formData },
+      );
+      if (!upload.ok) throw new Error("Upload failed");
+
+      // Record the document type so the reviewer (or provider mapping) sees it.
+      await fetch(
+        `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(sessionId)}/attributes`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            attributes: [
+              {
+                attribute: "identity_verification.document_type",
+                value: documentType,
+                attributeType: "STRING",
+              },
+            ],
+          }),
+        },
       );
 
       onComplete();
@@ -59,15 +76,15 @@ export const DocumentStep = (props: DocumentStepProps) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">Upload Document</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Upload document</h2>
         <p className="text-sm text-gray-500 mt-0.5">
-          Upload a clear photo of your identity document
+          Upload a clear photo of your identity document.
         </p>
       </div>
 
       <div>
         <label className="block text-xs font-medium text-gray-700 mb-1">
-          Document Type
+          Document type
         </label>
         <select
           value={documentType}

@@ -4,19 +4,30 @@ import { generateId } from "@usercore/shared-types";
 
 import { user } from "./auth.db";
 
-export const WorkspaceTable = pgTable("workspace", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => generateId("workspace")),
-  name: text("name").notNull(),
-  slug: text("slug").notNull().unique(),
-  organizationId: text("organization_id").notNull(),
-  // Who created the workspace. Roles are at the org level — this is just an
-  // audit field, not a permission marker.
-  ownerId: text("owner_id").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const WorkspaceTable = pgTable(
+  "workspace",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => generateId("workspace")),
+    name: text("name").notNull(),
+    // Slug is unique only within an organization — different orgs can have
+    // workspaces with the same name without colliding.
+    slug: text("slug").notNull(),
+    organizationId: text("organization_id").notNull(),
+    // Who created the workspace. Roles are at the org level — this is just an
+    // audit field, not a permission marker.
+    ownerId: text("owner_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    uniqueOrgSlug: uniqueIndex("workspace_org_slug_idx").on(
+      table.organizationId,
+      table.slug,
+    ),
+  }),
+);
 
 // Per-workspace member access. Org owners/admins implicitly have access to
 // every workspace in their org; org members only see workspaces with an

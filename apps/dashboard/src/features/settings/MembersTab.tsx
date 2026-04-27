@@ -11,6 +11,7 @@ import {
   useUpdateMemberRole,
 } from "../../lib/hooks/useMembers";
 import type { Member, Role } from "../../lib/hooks/useMembers";
+import { UPGRADE_HINT, usePlan } from "../../lib/hooks/usePlan";
 import { useWorkspace } from "../../lib/workspaceContext";
 import { InviteMemberModal } from "./InviteMemberModal";
 import { MemberAccessModal } from "./MemberAccessModal";
@@ -104,8 +105,10 @@ export const MembersTab = () => {
 
   const updateRole = useUpdateMemberRole(orgId);
   const removeMember = useRemoveMember(orgId);
+  const { memberLimitReached: membersAtLimit } = usePlan();
 
   const [inviteOpen, setInviteOpen] = useState(false);
+  const memberLimitReached = data ? membersAtLimit(data.total) : false;
   const [accessTarget, setAccessTarget] = useState<Member | null>(null);
   const [removeTarget, setRemoveTarget] = useState<Member | null>(null);
 
@@ -168,8 +171,10 @@ export const MembersTab = () => {
 
         <button
           type="button"
-          onClick={() => setInviteOpen(true)}
-          className="ml-auto py-2 px-4 bg-primary-200 hover:bg-primary-300 text-primary-800 font-medium rounded-lg transition-colors text-sm"
+          onClick={() => !memberLimitReached && setInviteOpen(true)}
+          disabled={memberLimitReached}
+          title={memberLimitReached ? UPGRADE_HINT : undefined}
+          className="ml-auto py-2 px-4 bg-primary-200 hover:bg-primary-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary-200 text-primary-800 font-medium rounded-lg transition-colors text-sm"
         >
           Invite member
         </button>

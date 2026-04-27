@@ -120,22 +120,29 @@ export const LivenessStep = (props: LivenessStepProps) => {
   const submitLivenessResult = async (passedChecks: string[]) => {
     try {
       await fetch(
-        `${workflowsApiUrl}/workflows/kyc-sessions/${sessionId}/liveness`,
+        `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(sessionId)}/attributes`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            passed: true,
-            confidence: 0.95,
-            checks: passedChecks,
+            attributes: [
+              {
+                attribute: "identity_verification.liveness_passed",
+                value: "true",
+                attributeType: "BOOLEAN",
+              },
+              {
+                attribute: "identity_verification.liveness_confidence",
+                value: "0.95",
+                attributeType: "NUMBER",
+              },
+              {
+                attribute: "identity_verification.liveness_checks",
+                value: passedChecks.join(","),
+                attributeType: "STRING",
+              },
+            ],
           }),
-        },
-      );
-
-      await fetch(
-        `${workflowsApiUrl}/workflows/kyc-sessions/${sessionId}/submit`,
-        {
-          method: "POST",
         },
       );
 

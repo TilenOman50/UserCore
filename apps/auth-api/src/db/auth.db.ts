@@ -59,6 +59,9 @@ export const organization = pgTable("organization", {
   slug: text("slug").notNull().unique(),
   logo: text("logo"),
   metadata: text("metadata"),
+  // Pricing tier — STARTER / GROWTH / ENTERPRISE. New orgs default to STARTER;
+  // changes are sales-led and applied directly to the column.
+  plan: text("plan").notNull().default("STARTER"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

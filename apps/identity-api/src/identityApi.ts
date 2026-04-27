@@ -42,7 +42,7 @@ export const createIdentityApi = (props: {
       await customerProfileService.updateKycStatus({
         customerId: parsed.data.customerId,
         kycStatus: parsed.data.status,
-        kycSessionId: parsed.data.kycSessionId,
+        kycSessionId: parsed.data.workflowSessionId,
       });
     },
   });

@@ -10,6 +10,7 @@
     "type-check": "tsc --noEmit",
     "db:migrate": "bun scripts/migrate.ts | pino-pretty",
     "db:seed-admin": "bun scripts/seed-admin.ts",
+    "db:seed-test-users": "bun scripts/seed-test-users.ts | pino-pretty",
     "db:generate-migration": "bun --bun drizzle-kit generate",
     "db:studio": "bun --bun drizzle-kit studio --port 4001",
     "db:check": "bun --bun drizzle-kit check",

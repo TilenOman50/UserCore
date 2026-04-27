@@ -1,6 +1,6 @@
 import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { and, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { cors } from "hono/cors";
 import { requestId } from "hono/request-id";
 
@@ -118,6 +118,7 @@ export const createAuthApi = (props: {
             organizationId: organization.id,
             organizationName: organization.name,
             organizationSlug: organization.slug,
+            organizationPlan: organization.plan,
           })
           .from(member)
           .innerJoin(organization, eq(organization.id, member.organizationId))
@@ -188,6 +189,7 @@ export const createAuthApi = (props: {
               id: activeOrg.organizationId,
               name: activeOrg.organizationName,
               slug: activeOrg.organizationSlug,
+              plan: activeOrg.organizationPlan,
             },
             role: activeOrg.role,
             workspace: activeWorkspace,
@@ -200,9 +202,47 @@ export const createAuthApi = (props: {
               id: m.organizationId,
               name: m.organizationName,
               slug: m.organizationSlug,
+              plan: m.organizationPlan,
               role: m.role,
               isActive: m.organizationId === activeOrg.organizationId,
             })),
+          },
+          200,
+        );
+      })
+      // Internal plan + counts lookup for sister services. Other backends
+      // call this to enforce per-plan quotas (e.g. workflows-api on session
+      // creation). Not exposed to browsers because the auth-api CORS allowlist
+      // doesn't include `*` and other services hit it server-to-server.
+      .get(`${BASE_PATH}/internal/organizations/:id`, async (c) => {
+        const id = c.req.param("id");
+        const [org] = await db
+          .select({
+            id: organization.id,
+            name: organization.name,
+            plan: organization.plan,
+          })
+          .from(organization)
+          .where(eq(organization.id, id))
+          .limit(1);
+        if (!org) return c.json({ error: "Organization not found" }, 404);
+        const memberCount = await db
+          .select({ count: count() })
+          .from(member)
+          .where(eq(member.organizationId, id));
+        const workspaceCount = await db
+          .select({ count: count() })
+          .from(WorkspaceTable)
+          .where(eq(WorkspaceTable.organizationId, id));
+        return c.json(
+          {
+            id: org.id,
+            name: org.name,
+            plan: org.plan,
+            counts: {
+              members: memberCount[0]?.count ?? 0,
+              workspaces: workspaceCount[0]?.count ?? 0,
+            },
           },
           200,
         );
@@ -376,7 +416,12 @@ export const createAuthApi = (props: {
         await rabbitMQ.publish({
           exchange: "usercore.events",
           routingKey: EVENTS.WORKSPACE_CREATED,
-          payload: { workspaceId, name, ownerId: session.user.id },
+          payload: {
+            workspaceId,
+            organizationId: orgId,
+            name,
+            ownerId: session.user.id,
+          },
         });
 
         logger.info({

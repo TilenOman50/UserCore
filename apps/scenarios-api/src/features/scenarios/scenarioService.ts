@@ -1,11 +1,11 @@
 import type { Logger } from "@usercore/logger";
 import type { RabbitMQClient } from "@usercore/rabbitmq";
+import type {
+  ScenarioActionConfig,
+  ScenarioEvaluation,
+} from "@usercore/shared-types";
 import { EVENTS } from "@usercore/shared-types";
 
-import type {
-  ScenarioActionTable,
-  ScenarioRuleTable,
-} from "../../db/schema.db";
 import type { RuleEngineService } from "../ruleEngine/ruleEngineService";
 import type { ScenarioRepository } from "./scenarioRepository";
 
@@ -26,6 +26,7 @@ export const createScenarioService = (props: {
     workspaceId: string;
     name: string;
     description?: string;
+    createdBy?: string;
   }) => {
     logger.info({ msg: "Creating scenario", name: data.name });
     return scenarioRepository.create(data);
@@ -41,83 +42,56 @@ export const createScenarioService = (props: {
 
   const updateScenario = async (
     id: string,
-    data: { name?: string; description?: string; isActive?: boolean },
+    data: Partial<{
+      name: string;
+      description: string | null;
+      evaluation: ScenarioEvaluation;
+      actions: ScenarioActionConfig[];
+    }>,
   ) => {
-    return scenarioRepository.update(id, {
-      ...data,
-      isActive: data.isActive !== undefined ? String(data.isActive) : undefined,
-    });
+    return scenarioRepository.update(id, data);
   };
 
   const deleteScenario = async (id: string) => {
     return scenarioRepository.deleteById(id);
   };
 
-  const addRule = async (data: {
-    scenarioId: string;
-    field: string;
-    operator: typeof ScenarioRuleTable.$inferInsert.operator;
-    value: string;
-  }) => {
-    return scenarioRepository.createRule(data);
-  };
-
-  const removeRule = async (ruleId: string) => {
-    return scenarioRepository.deleteRule(ruleId);
-  };
-
-  const addAction = async (data: {
-    scenarioId: string;
-    actionType: typeof ScenarioActionTable.$inferInsert.actionType;
-    config?: Record<string, unknown>;
-  }) => {
-    return scenarioRepository.createAction(data);
-  };
-
-  /**
-   * Evaluate all active scenarios for a workspace against the given customer data.
-   * Triggered when a KYC session is submitted or a profile is updated.
-   */
+  // Run every scenario in a workspace against the customer's flattened
+  // attribute map. workflows-api's rules-engine step already passes only the
+  // scenarios linked to a specific workflow step when calling /evaluate, so
+  // we don't need a separate "active" flag.
   const evaluateScenariosForCustomer = async (props: {
     workspaceId: string;
     customerId: string;
     customerData: CustomerData;
   }) => {
-    const scenarios = await scenarioRepository.findActiveByWorkspaceId(
+    const scenarios = await scenarioRepository.findByWorkspaceId(
       props.workspaceId,
     );
-
     for (const scenario of scenarios) {
-      if (scenario.isActive !== "true") continue;
-
-      const rules = await scenarioRepository.findRulesByScenarioId(scenario.id);
       const triggered = ruleEngineService.evaluateScenario(
-        rules,
+        scenario.evaluation,
         props.customerData,
       );
-
-      if (triggered) {
-        const actions = await scenarioRepository.findActionsByScenarioId(
-          scenario.id,
-        );
-
-        for (const action of actions) {
-          await rabbitMQ.publish({
-            exchange: "usercore.events",
-            routingKey: EVENTS.SCENARIO_TRIGGERED,
-            payload: {
-              scenarioId: scenario.id,
-              customerId: props.customerId,
-              workspaceId: props.workspaceId,
-              actionType: action.actionType,
-            },
-          });
-          logger.info({
-            msg: "Scenario triggered",
+      if (!triggered) continue;
+      for (const action of scenario.actions) {
+        if (!action.enabled) continue;
+        await rabbitMQ.publish({
+          exchange: "usercore.events",
+          routingKey: EVENTS.SCENARIO_TRIGGERED,
+          payload: {
             scenarioId: scenario.id,
-            action: action.actionType,
-          });
-        }
+            customerId: props.customerId,
+            workspaceId: props.workspaceId,
+            actionType: action.type,
+            actionValue: action.value,
+          },
+        });
+        logger.info({
+          msg: "Scenario triggered",
+          scenarioId: scenario.id,
+          action: action.type,
+        });
       }
     }
   };
@@ -128,9 +102,6 @@ export const createScenarioService = (props: {
     listScenarios,
     updateScenario,
     deleteScenario,
-    addRule,
-    removeRule,
-    addAction,
     evaluateScenariosForCustomer,
   };
 };

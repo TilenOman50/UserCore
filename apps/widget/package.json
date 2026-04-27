@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite --port 3007",
     "build": "tsc && vite build",
+    "build:sdk": "tsc && vite build --mode sdk",
     "preview": "vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",

@@ -6,8 +6,11 @@ import { CustomersPage } from "./pages/CustomersPage";
 import { KycReviewPage } from "./pages/KycReviewPage";
 import { LoginPage } from "./pages/LoginPage";
 import { OverviewPage } from "./pages/OverviewPage";
+import { ScenarioDetailPage } from "./pages/ScenarioDetailPage";
 import { ScenariosPage } from "./pages/ScenariosPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { WorkflowDetailPage } from "./pages/WorkflowDetailPage";
+import { WorkflowsPage } from "./pages/WorkflowsPage";
 
 export const App = () => {
   return (
@@ -17,8 +20,11 @@ export const App = () => {
         <Route path="/" element={<Layout />}>
           <Route index element={<OverviewPage />} />
           <Route path="customers" element={<CustomersPage />} />
+          <Route path="workflows" element={<WorkflowsPage />} />
+          <Route path="workflows/:id" element={<WorkflowDetailPage />} />
           <Route path="kyc-review" element={<KycReviewPage />} />
           <Route path="scenarios" element={<ScenariosPage />} />
+          <Route path="scenarios/:id" element={<ScenarioDetailPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Route>

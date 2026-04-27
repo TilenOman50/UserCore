@@ -1,0 +1,1 @@
+ALTER TABLE "scenario" DROP COLUMN "is_active";

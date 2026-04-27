@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
+import { UPGRADE_HINT, usePlan } from "../../lib/hooks/usePlan";
 import { useSwitchWorkspace } from "../../lib/hooks/useWorkspaceMutations";
 import { useWorkspace } from "../../lib/workspaceContext";
 import { NewWorkspaceModal } from "./NewWorkspaceModal";
@@ -7,8 +9,11 @@ import { NewWorkspaceModal } from "./NewWorkspaceModal";
 export const WorkspaceSwitcher = () => {
   const { workspace, workspaces, organization, role } = useWorkspace();
   const switchWorkspace = useSwitchWorkspace();
+  const navigate = useNavigate();
+  const { workspaceLimitReached } = usePlan();
 
-  const canCreateWorkspace = role === "owner" || role === "admin";
+  const atLimit = workspaceLimitReached(workspaces.length);
+  const canCreateWorkspace = (role === "owner" || role === "admin") && !atLimit;
 
   const [open, setOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
@@ -29,6 +34,9 @@ export const WorkspaceSwitcher = () => {
     setOpen(false);
     if (workspaceId === workspace?.id) return;
     await switchWorkspace.mutateAsync(workspaceId);
+    // Routes like /workflows/:id and /scenarios/:id belong to the previous
+    // workspace — drop the user back at overview to avoid 404s.
+    navigate("/");
   };
 
   return (
@@ -47,8 +55,9 @@ export const WorkspaceSwitcher = () => {
             <div className="text-sm font-semibold text-gray-900 truncate leading-tight">
               {workspace?.name ?? "—"}
             </div>
-            <div className="text-xs text-gray-500 leading-tight truncate">
-              {organization.name}
+            <div className="text-xs text-gray-500 leading-tight truncate flex items-center gap-1.5">
+              <span className="truncate">{organization.name}</span>
+              <PlanBadge plan={organization.plan} />
             </div>
           </div>
           <svg
@@ -100,19 +109,28 @@ export const WorkspaceSwitcher = () => {
                 )}
               </button>
             ))}
-            {canCreateWorkspace && (
+            {(role === "owner" || role === "admin") && (
               <div className="border-t border-gray-100 mt-1 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpen(false);
-                    setNewOpen(true);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary-800 hover:bg-gray-50"
-                >
-                  <span className="text-base leading-none">+</span> New
-                  workspace
-                </button>
+                {canCreateWorkspace ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      setNewOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary-800 hover:bg-gray-50"
+                  >
+                    <span className="text-base leading-none">+</span> New
+                    workspace
+                  </button>
+                ) : (
+                  <div
+                    className="w-full px-3 py-2 text-xs text-gray-400"
+                    title={UPGRADE_HINT}
+                  >
+                    Workspace limit reached on this plan
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -123,3 +141,19 @@ export const WorkspaceSwitcher = () => {
     </>
   );
 };
+
+const PLAN_PILL_STYLES: Record<string, string> = {
+  STARTER: "bg-gray-100 text-gray-600 border-gray-200",
+  GROWTH: "bg-primary-100 text-primary-700 border-primary-200",
+  ENTERPRISE: "bg-violet-100 text-violet-700 border-violet-200",
+};
+
+const PlanBadge = ({ plan }: { plan: string }) => (
+  <span
+    className={`inline-flex items-center px-1.5 py-px rounded text-[10px] font-semibold uppercase tracking-wide border shrink-0 ${
+      PLAN_PILL_STYLES[plan] ?? PLAN_PILL_STYLES.STARTER
+    }`}
+  >
+    {plan.toLowerCase()}
+  </span>
+);
