@@ -10,6 +10,7 @@ import { resolveDevCorsOrigin } from "@usercore/shared-types";
 import { env } from "./env";
 import { createComplyAdvantageClient } from "./features/complyAdvantage/complyAdvantageClient";
 import { registerProviderDispatcher } from "./features/dispatcher/dispatcherService";
+import { createEffectiveConfigClient } from "./features/effectiveConfig/effectiveConfigClient";
 import { createIdenfyClient } from "./features/idenfy/idenfyClient";
 import { createIdenfySessionRouter } from "./features/idenfy/idenfySessionRoute";
 import { createIdenfyWebhookRouter } from "./features/idenfy/idenfyWebhookRoute";
@@ -28,6 +29,7 @@ export const createProvidersApi = async (props: {
   const idenfyClient = createIdenfyClient({ env, logger });
   const complyAdvantageClient = createComplyAdvantageClient({ env, logger });
   const ipQualityScoreClient = createIpQualityScoreClient({ env, logger });
+  const effectiveConfigClient = createEffectiveConfigClient({ logger });
 
   // Wire the AML / fraud event dispatcher
   await registerProviderDispatcher({
@@ -40,6 +42,7 @@ export const createProvidersApi = async (props: {
   // Routers
   const idenfySessionRouter = createIdenfySessionRouter({
     idenfyClient,
+    effectiveConfigClient,
     logger,
   });
   const idenfyWebhookRouter = createIdenfyWebhookRouter({

@@ -161,8 +161,15 @@ const SessionDetail = ({
       <div className="bg-white border border-gray-200 rounded-xl p-5">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-base font-semibold text-gray-900">
-              {session.customerId}
+            <div className="flex items-center gap-2">
+              <div className="text-base font-semibold text-gray-900">
+                {session.customerId}
+              </div>
+              {session.verificationMode === "sandbox" && (
+                <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800">
+                  Sandbox
+                </span>
+              )}
             </div>
             <div className="text-xs text-gray-500 mt-0.5">
               Submitted {new Date(session.createdAt).toLocaleString()}

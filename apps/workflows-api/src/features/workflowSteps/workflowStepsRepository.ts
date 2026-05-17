@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 
 import type { Logger } from "@usercore/logger";
 import type {
+  ProviderCredentialMode,
   ProviderShortName,
   WorkflowStepType,
 } from "@usercore/shared-types";
@@ -62,6 +63,7 @@ export const createWorkflowStepsRepository = (props: {
     id: string,
     data: Partial<{
       provider: ProviderShortName | null;
+      providerCredentialMode: ProviderCredentialMode;
       valid: boolean;
     }>,
   ) => {

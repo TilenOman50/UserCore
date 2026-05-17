@@ -3,6 +3,7 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import type { Logger } from "@usercore/logger";
 
 import type { ContextVariables } from "../../types";
+import type { EffectiveConfigClient } from "../effectiveConfig/effectiveConfigClient";
 import type { IdenfyClient } from "./idenfyClient";
 
 const StartSessionInputSchema = z.object({
@@ -28,9 +29,10 @@ const ErrorSchema = z.object({ error: z.string() });
 
 export const createIdenfySessionRouter = (props: {
   idenfyClient: IdenfyClient;
+  effectiveConfigClient: EffectiveConfigClient;
   logger: Logger;
 }) => {
-  const { idenfyClient, logger } = props;
+  const { idenfyClient, effectiveConfigClient, logger } = props;
 
   return new OpenAPIHono<{ Variables: ContextVariables }>().openapi(
     createRoute({
@@ -58,18 +60,35 @@ export const createIdenfySessionRouter = (props: {
     async (c) => {
       const body = c.req.valid("json");
       try {
-        const session = await idenfyClient.startSession({
-          // workflowSessionId becomes iDenfy's clientId so callbacks identify
-          // the originating session without an extra lookup.
-          clientId: body.workflowSessionId,
-          firstName: body.firstName,
-          lastName: body.lastName,
-          dateOfBirth: body.dateOfBirth,
-          locale: body.locale,
-          callbackUrl: body.callbackUrl,
-          successUrl: body.successUrl,
-          errorUrl: body.errorUrl,
+        // Ask workflows-api whether this session's org has BYO iDenfy
+        // credentials configured + enabled. Managed mode (the default) lets
+        // the iDenfy client fall back to env keys.
+        const effective = await effectiveConfigClient.get({
+          workflowSessionId: body.workflowSessionId,
+          provider: "idenfy",
         });
+        logger.info({
+          msg: "iDenfy session — effective dispatch mode resolved",
+          sessionId: body.workflowSessionId,
+          mode: effective.mode,
+        });
+        const session = await idenfyClient.startSession(
+          {
+            // workflowSessionId becomes iDenfy's clientId so callbacks identify
+            // the originating session without an extra lookup.
+            clientId: body.workflowSessionId,
+            firstName: body.firstName,
+            lastName: body.lastName,
+            dateOfBirth: body.dateOfBirth,
+            locale: body.locale,
+            callbackUrl: body.callbackUrl,
+            successUrl: body.successUrl,
+            errorUrl: body.errorUrl,
+          },
+          effective.mode === "byo"
+            ? { apiKey: effective.apiKey, apiSecret: effective.apiSecret }
+            : null,
+        );
         return c.json(session, 201);
       } catch (err) {
         logger.error({

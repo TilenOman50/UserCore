@@ -7,7 +7,6 @@ import { ContactStep } from "./steps/ContactStep";
 import { DocumentStep } from "./steps/DocumentStep";
 import { EmailStep } from "./steps/EmailStep";
 import { HandedOffScreen } from "./steps/HandedOffScreen";
-import { IdenfyHandoffStep } from "./steps/IdenfyHandoffStep";
 import { LivenessStep } from "./steps/LivenessStep";
 import { OverviewScreen } from "./steps/OverviewScreen";
 import { ProofOfResidenceStep } from "./steps/ProofOfResidenceStep";
@@ -130,9 +129,14 @@ const apiJson = async <T,>(url: string, init?: RequestInit): Promise<T> => {
 type Phase = "overview" | "step" | "done" | "handed-off";
 
 export const Widget = (props: WidgetProps) => {
+  // providersApiUrl is intentionally accepted but unused right now — it was
+  // consumed by the iDenfy handoff path, which is bypassed in this build
+  // (see the identityProvider === "idenfy" branch below). Kept in the
+  // public WidgetProps surface so SDK callers don't need to change when we
+  // re-enable iDenfy later.
   const {
     workflowsApiUrl,
-    providersApiUrl,
+    providersApiUrl: _providersApiUrl,
     sessionId,
     mobileUrl,
     isHandoff,
@@ -446,15 +450,18 @@ export const Widget = (props: WidgetProps) => {
     );
   }
 
+  // Identity-verification provider is intentionally NOT branched on at
+  // runtime in this build. The workflow editor still lets operators wire
+  // iDenfy (so the demo can show the toggle + chooser modal), but actually
+  // launching iDenfy's hosted page requires a paid contract we don't have,
+  // so every session falls through to the in-house substep flow (terms,
+  // email OTP, doc scan, liveness face scan, POR, contact). To re-enable
+  // when credentials are live: re-import IdenfyHandoffStep from
+  // "./steps/IdenfyHandoffStep" and render <Shell><IdenfyHandoffStep…/></Shell>
+  // inside the branch below.
   if (identityProvider === "idenfy") {
-    return (
-      <Shell branding={shellBranding}>
-        <IdenfyHandoffStep
-          providersApiUrl={providersApiUrl}
-          workflowSessionId={session.id}
-          customerId={session.customerId}
-        />
-      </Shell>
+    console.info(
+      "iDenfy is configured on this workflow but bypassed in this build — using in-house flow.",
     );
   }
 

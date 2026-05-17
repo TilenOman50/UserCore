@@ -4,7 +4,6 @@ import type { Logger } from "@usercore/logger";
 import type {
   WorkflowBranding,
   WorkflowReason,
-  WorkflowStatus,
   WorkflowType,
   WorkflowVerificationMode,
 } from "@usercore/shared-types";
@@ -23,7 +22,6 @@ export const createWorkflowsRepository = (props: {
     organizationId: string;
     displayName: string;
     type?: WorkflowType;
-    status?: WorkflowStatus;
     verificationMode?: WorkflowVerificationMode;
     isDefault?: boolean;
   }) => {
@@ -123,7 +121,6 @@ export const createWorkflowsRepository = (props: {
     data: Partial<{
       displayName: string;
       description: string | null;
-      status: WorkflowStatus;
       verificationMode: WorkflowVerificationMode;
       isDefault: boolean;
       branding: WorkflowBranding;

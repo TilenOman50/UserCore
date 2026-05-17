@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, Telescope } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  FlaskConical,
+  Plus,
+  Radio,
+  Telescope,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -83,9 +92,6 @@ export const WorkflowsPage = () => {
                     Name
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Mode
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -159,26 +165,31 @@ const WorkflowRow = ({
     </td>
     <td className="px-6 py-4">
       <span
-        className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-          workflow.status === "ACTIVE"
-            ? "bg-primary-100 text-primary-700"
-            : "bg-gray-100 text-gray-600"
+        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+          workflow.verificationMode === "sandbox"
+            ? "bg-yellow-100 text-yellow-700"
+            : "bg-red-100 text-red-700"
         }`}
       >
-        {workflow.status.toLowerCase()}
+        {workflow.verificationMode === "sandbox" ? (
+          <>
+            <FlaskConical size={12} /> Sandbox
+          </>
+        ) : (
+          <>
+            <Radio size={12} /> Live
+          </>
+        )}
       </span>
-    </td>
-    <td className="px-6 py-4 text-sm text-gray-600">
-      {workflow.verificationMode}
     </td>
     <td className="px-6 py-4">
       {workflow.valid ? (
-        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-700">
-          valid
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-700">
+          <Check size={12} /> Valid
         </span>
       ) : (
-        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
-          needs config
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+          <AlertTriangle size={12} /> Needs config
         </span>
       )}
     </td>

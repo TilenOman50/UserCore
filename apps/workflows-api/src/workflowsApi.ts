@@ -28,6 +28,9 @@ import { createIdentityWidgetRepository } from "./features/identityWidget/identi
 import { createIdentityWidgetRouter } from "./features/identityWidget/identityWidgetRoute";
 import { createIdentityWidgetService } from "./features/identityWidget/identityWidgetService";
 import { createPlanClient } from "./features/plans/planClient";
+import { createProviderConfigurationsRepository } from "./features/providerConfigurations/providerConfigurationsRepository";
+import { createProviderConfigurationsRouter } from "./features/providerConfigurations/providerConfigurationsRoute";
+import { createProviderConfigurationsService } from "./features/providerConfigurations/providerConfigurationsService";
 import { createRulesEngineRepository } from "./features/rulesEngine/rulesEngineRepository";
 import { createRulesEngineRouter } from "./features/rulesEngine/rulesEngineRoute";
 import { createRulesEngineService } from "./features/rulesEngine/rulesEngineService";
@@ -75,6 +78,8 @@ export const createWorkflowsApi = async (props: {
     logger,
   });
   const rulesEngineRepository = createRulesEngineRepository({ db, logger });
+  const providerConfigurationsRepository =
+    createProviderConfigurationsRepository({ db });
   const identityWidgetRepository = createIdentityWidgetRepository({
     db,
     logger,
@@ -127,6 +132,13 @@ export const createWorkflowsApi = async (props: {
     workflowsService,
     logger,
   });
+  const providerConfigurationsService = createProviderConfigurationsService({
+    repository: providerConfigurationsRepository,
+    sessionsRepository: workflowSessionsRepository,
+    workflowsRepository,
+    workflowStepsRepository,
+    logger,
+  });
   const identityWidgetService = createIdentityWidgetService({
     identityWidgetRepository,
     storageService,
@@ -141,6 +153,8 @@ export const createWorkflowsApi = async (props: {
     workflowSessionStepsRepository,
     workflowSessionAttributesRepository,
     workflowsRepository,
+    workflowStepsRepository,
+    providerConfigurationsService,
     storageService,
     planClient,
     rabbitMQ,
@@ -193,6 +207,9 @@ export const createWorkflowsApi = async (props: {
     duplicateDetectionService,
   });
   const rulesEngineRouter = createRulesEngineRouter({ rulesEngineService });
+  const providerConfigurationsRouter = createProviderConfigurationsRouter({
+    providerConfigurationsService,
+  });
   const identityWidgetRouter = createIdentityWidgetRouter({
     identityWidgetService,
   });
@@ -249,6 +266,7 @@ export const createWorkflowsApi = async (props: {
     .route(BASE_PATH, fraudDetectionRouter)
     .route(BASE_PATH, duplicateDetectionRouter)
     .route(BASE_PATH, rulesEngineRouter)
+    .route(BASE_PATH, providerConfigurationsRouter)
     .route(BASE_PATH, identityWidgetRouter)
     .route(BASE_PATH, workflowSessionsRouter)
     .route(BASE_PATH, emailVerificationRouter);

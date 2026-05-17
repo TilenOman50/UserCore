@@ -3,7 +3,6 @@ import type {
   ProviderShortName,
   WorkflowBranding,
   WorkflowReason,
-  WorkflowStatus,
   WorkflowStepType,
   WorkflowType,
   WorkflowVerificationMode,
@@ -56,7 +55,6 @@ export const createWorkflowsService = (props: {
     organizationId: string;
     displayName: string;
     type?: WorkflowType;
-    status?: WorkflowStatus;
     verificationMode?: WorkflowVerificationMode;
     isDefault?: boolean;
   }) => {
@@ -97,7 +95,6 @@ export const createWorkflowsService = (props: {
     data: Partial<{
       displayName: string;
       description: string | null;
-      status: WorkflowStatus;
       verificationMode: WorkflowVerificationMode;
       isDefault: boolean;
       branding: WorkflowBranding;

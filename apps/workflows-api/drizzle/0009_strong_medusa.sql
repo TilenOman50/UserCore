@@ -1,0 +1,1 @@
+ALTER TABLE "provider_configuration" DROP COLUMN "last_tested_at";

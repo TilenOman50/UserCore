@@ -6,6 +6,7 @@ import { CustomersPage } from "./pages/CustomersPage";
 import { KycReviewPage } from "./pages/KycReviewPage";
 import { LoginPage } from "./pages/LoginPage";
 import { OverviewPage } from "./pages/OverviewPage";
+import { ProvidersPage } from "./pages/ProvidersPage";
 import { ScenarioDetailPage } from "./pages/ScenarioDetailPage";
 import { ScenariosPage } from "./pages/ScenariosPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -25,6 +26,7 @@ export const App = () => {
           <Route path="kyc-review" element={<KycReviewPage />} />
           <Route path="scenarios" element={<ScenariosPage />} />
           <Route path="scenarios/:id" element={<ScenarioDetailPage />} />
+          <Route path="providers" element={<ProvidersPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Route>

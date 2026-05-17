@@ -48,15 +48,36 @@ export const registerProviderDispatcher = async (props: {
     },
     "aml-screening": {
       complyAdvantage: async (req) => {
+        // Sandbox short-circuit: return a canned "clean" result without
+        // hitting ComplyAdvantage. Integrators get to wire decision rules
+        // against a predictable response, and the org doesn't burn API
+        // credits on test traffic.
+        if (req.verificationMode === "sandbox") {
+          logger.info({
+            msg: "ComplyAdvantage check stubbed — sandbox mode",
+            sessionId: req.workflowSessionId,
+          });
+          return {
+            status: "SUCCEEDED",
+            rawPayload: { sandbox: true, matchStatus: "no_match" },
+            message: "sandbox · 0 hits, risk=low",
+          };
+        }
         const searchTerm = String(req.data.searchTerm ?? "");
-        const result = await complyAdvantageClient.search({
-          searchTerm,
-          clientRef: req.workflowSessionId,
-          birthYear:
-            typeof req.data.birthYear === "number"
-              ? req.data.birthYear
-              : undefined,
-        });
+        // payload.credentials is populated by workflows-api when the
+        // step is wired BYO — null falls back to env-managed inside the
+        // client.
+        const result = await complyAdvantageClient.search(
+          {
+            searchTerm,
+            clientRef: req.workflowSessionId,
+            birthYear:
+              typeof req.data.birthYear === "number"
+                ? req.data.birthYear
+                : undefined,
+          },
+          req.credentials?.apiKey ?? null,
+        );
         const status: WorkflowSessionStatus =
           result.matchStatus === "no_match"
             ? "SUCCEEDED"
@@ -72,8 +93,22 @@ export const registerProviderDispatcher = async (props: {
     },
     "fraud-detection": {
       ipQualityScore: async (req) => {
+        if (req.verificationMode === "sandbox") {
+          logger.info({
+            msg: "IPQS check stubbed — sandbox mode",
+            sessionId: req.workflowSessionId,
+          });
+          return {
+            status: "SUCCEEDED",
+            rawPayload: { sandbox: true, fraudScore: 5 },
+            message: "sandbox · fraud_score=5",
+          };
+        }
         const ip = String(req.data.ip ?? "");
-        const result = await ipQualityScoreClient.checkIp({ ip });
+        const result = await ipQualityScoreClient.checkIp(
+          { ip },
+          req.credentials?.apiKey ?? null,
+        );
         // Threshold of 75 is the default IPQS recommendation for "high risk".
         const status: WorkflowSessionStatus =
           result.fraudScore >= 75 ? "FAILED" : "SUCCEEDED";

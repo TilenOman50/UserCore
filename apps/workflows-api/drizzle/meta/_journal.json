@@ -50,6 +50,34 @@
       "when": 1779034734257,
       "tag": "0006_lumpy_komodo",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1779044818756,
+      "tag": "0007_cheerful_monster_badoon",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1779050849128,
+      "tag": "0008_lowly_puck",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1779052588934,
+      "tag": "0009_strong_medusa",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1779053700863,
+      "tag": "0010_special_terrax",
+      "breakpoints": true
     }
   ]
 }
