@@ -25,10 +25,13 @@ export const createIdentityVerificationRepository = (props: {
         .values({ workflowStepId })
         .returning();
 
+      // terms-acceptance is part of every flow and not user-toggleable in the
+      // dashboard, so we seed it enabled+valid. Everything else starts off
+      // until the admin opts in.
       const subStepRows = IDENTITY_VERIFICATION_SUB_STEP_TYPES.map((type) => ({
         type,
-        enabled: false,
-        valid: false,
+        enabled: type === "terms-acceptance",
+        valid: type === "terms-acceptance",
         identityVerificationStepId: step!.id,
       }));
       const subSteps = await tx

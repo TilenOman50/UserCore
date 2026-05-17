@@ -89,6 +89,21 @@ const SUB_STEP_LABELS: Record<IdentityVerificationSubStepType, string> = {
   "terms-acceptance": "Terms & conditions",
 };
 
+const SUB_STEP_DESCRIPTIONS: Record<IdentityVerificationSubStepType, string> = {
+  "terms-acceptance":
+    "Customer agrees to your terms before the verification begins.",
+  "email-verification":
+    "Send a one-time code to the customer's email and verify ownership.",
+  "id-scan":
+    "Capture the front and back of a government-issued identity document.",
+  "face-scan":
+    "Selfie capture with liveness detection, matched against the ID photo.",
+  "proof-of-residence":
+    "Upload of a recent utility bill or bank statement to confirm address.",
+  "contact-information":
+    "Collect phone, mailing address, and any extra fields you need.",
+};
+
 const SUB_STEP_ICONS: Record<IdentityVerificationSubStepType, IconComp> = {
   "id-scan": IdCard,
   "face-scan": ScanFace,
@@ -97,6 +112,17 @@ const SUB_STEP_ICONS: Record<IdentityVerificationSubStepType, IconComp> = {
   "proof-of-residence": Home,
   "terms-acceptance": FileText,
 };
+
+// Display order for identity-verification sub-steps. Terms first (locked on),
+// then the verification flow as the customer experiences it in the widget.
+const SUB_STEP_ORDER: IdentityVerificationSubStepType[] = [
+  "terms-acceptance",
+  "email-verification",
+  "id-scan",
+  "face-scan",
+  "proof-of-residence",
+  "contact-information",
+];
 
 const PROVIDER_OPTIONS: Record<
   WorkflowStepType,
@@ -706,38 +732,20 @@ const IdentityVerificationDetail = ({
         {detail.isLoading ? (
           <div className="text-xs text-gray-500">Loading sub-steps…</div>
         ) : (
-          <div className="ml-2 border-l-2 border-gray-200 pl-4 space-y-1.5">
-            {detail.data?.subSteps.map((sub) => {
-              const SubIcon =
-                SUB_STEP_ICONS[sub.type as IdentityVerificationSubStepType];
+          <div className="space-y-2">
+            {SUB_STEP_ORDER.map((type) => {
+              const sub = detail.data?.subSteps.find((s) => s.type === type);
+              if (!sub) return null;
               return (
-                <label
+                <SubStepCard
                   key={sub.id}
-                  className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-white cursor-pointer"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center shrink-0 text-gray-600">
-                    {SubIcon ? <SubIcon size={16} /> : null}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-900">
-                      {SUB_STEP_LABELS[
-                        sub.type as IdentityVerificationSubStepType
-                      ] ?? sub.type}
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={sub.enabled}
-                    disabled={!canEdit}
-                    onChange={(e) =>
-                      toggleSubStep.mutate({
-                        subStepId: sub.id,
-                        enabled: e.target.checked,
-                      })
-                    }
-                    className="h-4 w-4 rounded text-primary-600 focus:ring-primary-300 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                  />
-                </label>
+                  type={type}
+                  enabled={sub.enabled}
+                  canEdit={canEdit}
+                  onToggle={(enabled) =>
+                    toggleSubStep.mutate({ subStepId: sub.id, enabled })
+                  }
+                />
               );
             })}
           </div>
@@ -873,5 +881,74 @@ const ProviderCard = ({
       </div>
       <div className="text-xs text-gray-500">{description}</div>
     </button>
+  );
+};
+
+const SubStepCard = ({
+  type,
+  enabled,
+  canEdit,
+  onToggle,
+}: {
+  type: IdentityVerificationSubStepType;
+  enabled: boolean;
+  canEdit: boolean;
+  onToggle: (enabled: boolean) => void;
+}) => {
+  const Icon = SUB_STEP_ICONS[type];
+  const required = type === "terms-acceptance";
+
+  return (
+    <div
+      className={`flex items-start gap-3 p-4 rounded-xl border bg-white transition-colors ${
+        enabled ? "border-gray-200" : "border-dashed border-gray-200 opacity-75"
+      }`}
+    >
+      <div className="w-10 h-10 rounded-xl bg-gray-50 border-2 border-gray-200 flex items-center justify-center shrink-0 text-gray-700">
+        <Icon size={18} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-sm font-semibold text-gray-900">
+            {SUB_STEP_LABELS[type]}
+          </span>
+          {required && (
+            <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary-100 text-primary-700">
+              Required
+            </span>
+          )}
+        </div>
+        <div className="text-xs text-gray-500 mt-0.5">
+          {SUB_STEP_DESCRIPTIONS[type]}
+        </div>
+      </div>
+      {required ? (
+        <span className="text-xs text-gray-400 self-center shrink-0">
+          Always on
+        </span>
+      ) : (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          disabled={!canEdit}
+          onClick={() => onToggle(!enabled)}
+          title={
+            !canEdit
+              ? "Only owners and admins can change sub-steps."
+              : undefined
+          }
+          className={`relative inline-flex h-5 w-9 shrink-0 self-center items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-200 disabled:cursor-not-allowed disabled:opacity-50 ${
+            enabled ? "bg-primary-500" : "bg-gray-300"
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              enabled ? "translate-x-4" : "translate-x-0.5"
+            }`}
+          />
+        </button>
+      )}
+    </div>
   );
 };

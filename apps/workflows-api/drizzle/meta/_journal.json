@@ -36,6 +36,13 @@
       "when": 1777329571166,
       "tag": "0004_nasty_randall",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1779018544563,
+      "tag": "0005_terms_acceptance_always_on",
+      "breakpoints": true
     }
   ]
 }
