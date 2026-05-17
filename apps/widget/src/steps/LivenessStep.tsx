@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FaceDetector, FilesetResolver } from "@mediapipe/tasks-vision";
+import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 
 type LivenessStepProps = {
   workflowsApiUrl: string;
@@ -16,6 +16,27 @@ const CHECK_LABELS: Record<Check, string> = {
   head_turn: "Head turn",
 };
 
+const INSTRUCTIONS: Record<Check, string> = {
+  face_detected: "Centre your face in the frame",
+  blink_detected: "Now blink your eyes",
+  head_turn: "Slowly turn your head left, then right",
+};
+
+// MediaPipe's eye-blink blendshapes are 0 (open) → 1 (closed). We require the
+// user's eyes to have been open at some point (so a freeze-frame photo of a
+// closed-eye face doesn't pass) and then crossed the closed threshold.
+const BLINK_CLOSED_THRESHOLD = 0.5;
+const BLINK_OPEN_THRESHOLD = 0.25;
+
+// Require deliberate turns to BOTH sides — yaw must dip past -threshold AND
+// climb past +threshold during the session, not merely accumulate a swing of
+// that size on one side. Forces an obvious left+right motion rather than a
+// passing shoulder-tilt. ~0.45 rad ≈ 26° each way (so ~52° total).
+const HEAD_TURN_YAW_HALF = 0.45;
+
+const FACE_LANDMARKER_MODEL =
+  "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+
 export const LivenessStep = (props: LivenessStepProps) => {
   const { workflowsApiUrl, sessionId, onComplete } = props;
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -28,7 +49,7 @@ export const LivenessStep = (props: LivenessStepProps) => {
     "idle",
   );
   const [error, setError] = useState<string | null>(null);
-  const [faceDetector, setFaceDetector] = useState<FaceDetector | null>(null);
+  const [landmarker, setLandmarker] = useState<FaceLandmarker | null>(null);
 
   useEffect(() => {
     const loadMediaPipe = async () => {
@@ -36,17 +57,22 @@ export const LivenessStep = (props: LivenessStepProps) => {
         const vision = await FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm",
         );
-        const detector = await FaceDetector.createFromOptions(vision, {
+        const lm = await FaceLandmarker.createFromOptions(vision, {
           baseOptions: {
-            modelAssetPath:
-              "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+            modelAssetPath: FACE_LANDMARKER_MODEL,
             delegate: "GPU",
           },
+          // Blendshapes give us per-frame eye/mouth/brow expression scores
+          // (used for blink); the transformation matrix gives a 3D head pose
+          // (used for head turn).
+          outputFaceBlendshapes: true,
+          outputFacialTransformationMatrixes: true,
           runningMode: "VIDEO",
+          numFaces: 1,
         });
-        setFaceDetector(detector);
+        setLandmarker(lm);
       } catch {
-        setError("Failed to load face detection model.");
+        setError("Failed to load face landmarker model.");
       }
     };
     void loadMediaPipe();
@@ -70,34 +96,70 @@ export const LivenessStep = (props: LivenessStepProps) => {
   };
 
   const runDetectionLoop = (stream: MediaStream) => {
-    let frameCount = 0;
     const passedChecks = new Set<Check>();
+    // Blink: require eyes to have been measurably open before counting a
+    // closure. Stops a closed-eye photo from instantly satisfying the check.
+    let eyesWereOpen = false;
+    // Head turn: track the min/max yaw seen during the session so a
+    // continuous head sweep eventually crosses the swing threshold.
+    let yawMin = Infinity;
+    let yawMax = -Infinity;
 
     const detect = async () => {
-      if (!videoRef.current || !faceDetector) return;
+      if (!videoRef.current || !landmarker) return;
       if (videoRef.current.readyState < 2) {
         requestAnimationFrame(detect);
         return;
       }
 
-      const detections = faceDetector.detectForVideo(
+      const result = landmarker.detectForVideo(
         videoRef.current,
         performance.now(),
-      ).detections;
-      frameCount++;
+      );
 
-      if (detections.length > 0) {
-        passedChecks.add("face_detected");
-        setChecks((prev) => ({ ...prev, face_detected: "passed" }));
+      if (result.faceLandmarks.length > 0) {
+        if (!passedChecks.has("face_detected")) {
+          passedChecks.add("face_detected");
+          setChecks((prev) => ({ ...prev, face_detected: "passed" }));
+        }
 
-        if (frameCount > 60) {
+        // Real blink — eyeBlinkLeft / eyeBlinkRight are 0 when eyes are
+        // fully open, climbing toward 1 as they close. We average the two
+        // so a wink doesn't false-trigger.
+        const blendshapes = result.faceBlendshapes[0]?.categories ?? [];
+        const leftBlink =
+          blendshapes.find((b) => b.categoryName === "eyeBlinkLeft")?.score ??
+          0;
+        const rightBlink =
+          blendshapes.find((b) => b.categoryName === "eyeBlinkRight")?.score ??
+          0;
+        const avgBlink = (leftBlink + rightBlink) / 2;
+        if (avgBlink < BLINK_OPEN_THRESHOLD) eyesWereOpen = true;
+        if (
+          eyesWereOpen &&
+          avgBlink > BLINK_CLOSED_THRESHOLD &&
+          !passedChecks.has("blink_detected")
+        ) {
           passedChecks.add("blink_detected");
           setChecks((prev) => ({ ...prev, blink_detected: "passed" }));
         }
 
-        if (frameCount > 120) {
-          passedChecks.add("head_turn");
-          setChecks((prev) => ({ ...prev, head_turn: "passed" }));
+        // Real head turn — facialTransformationMatrixes[0].data is a
+        // column-major 4×4 head-to-camera matrix; yaw (rotation around the
+        // vertical axis) is atan2(R[0][2], R[2][2]).
+        const matrix = result.facialTransformationMatrixes[0]?.data;
+        if (matrix) {
+          const yaw = Math.atan2(matrix[8] ?? 0, matrix[10] ?? 1);
+          if (yaw < yawMin) yawMin = yaw;
+          if (yaw > yawMax) yawMax = yaw;
+          if (
+            yawMin < -HEAD_TURN_YAW_HALF &&
+            yawMax > HEAD_TURN_YAW_HALF &&
+            !passedChecks.has("head_turn")
+          ) {
+            passedChecks.add("head_turn");
+            setChecks((prev) => ({ ...prev, head_turn: "passed" }));
+          }
         }
       }
 
@@ -184,13 +246,25 @@ export const LivenessStep = (props: LivenessStepProps) => {
 
   const checkEntries = Object.entries(checks) as [Check, CheckStatus][];
 
+  // Walk the checks in order; the first one still pending drives the on-screen
+  // instruction, so the user always knows what they're meant to do next.
+  const nextPending = (
+    ["face_detected", "blink_detected", "head_turn"] as Check[]
+  ).find((c) => checks[c] === "pending");
+  const subtitle =
+    status === "idle"
+      ? "We'll detect liveness with your camera. Nothing leaves your device until you submit."
+      : status === "done"
+        ? "Hold still while we save your selfie…"
+        : nextPending
+          ? INSTRUCTIONS[nextPending]
+          : "Almost there…";
+
   return (
     <div className="flex flex-col h-full">
       <div className="mb-4">
         <h2 className="text-xl font-semibold text-gray-900">Face scan</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          Follow the on-screen instructions so we can confirm you're present.
-        </p>
+        <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
       </div>
 
       <div className="flex-1 flex flex-col">
@@ -253,10 +327,10 @@ export const LivenessStep = (props: LivenessStepProps) => {
       {status === "idle" && (
         <button
           onClick={startCamera}
-          disabled={!faceDetector}
+          disabled={!landmarker}
           className="mt-4 w-full py-3 px-4 bg-primary-200 hover:bg-primary-300 disabled:opacity-50 disabled:cursor-not-allowed text-primary-800 font-semibold rounded-xl transition-colors text-sm"
         >
-          {faceDetector ? "Start camera" : "Loading model…"}
+          {landmarker ? "Start camera" : "Loading model…"}
         </button>
       )}
     </div>
