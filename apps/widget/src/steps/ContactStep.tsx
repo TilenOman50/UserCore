@@ -1,30 +1,32 @@
 import { useState } from "react";
 
+import { PhoneInput } from "../components/PhoneInput";
+
 type ContactStepProps = {
   workflowsApiUrl: string;
   sessionId: string;
   onComplete: () => void;
+  // Admin-configured field set. When missing we render every field; when
+  // present we render only the fields toggled true.
+  config?: {
+    fields?: {
+      phone: boolean;
+      email: boolean;
+    };
+  };
 };
 
 type ContactFields = {
   phone: string;
-  address: string;
-  city: string;
-  postalCode: string;
-  country: string;
+  email: string;
 };
 
 export const ContactStep = (props: ContactStepProps) => {
-  const { workflowsApiUrl, sessionId, onComplete } = props;
+  const { workflowsApiUrl, sessionId, onComplete, config } = props;
+  const enabledFields = config?.fields ?? { phone: true, email: true };
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<ContactFields>({
-    phone: "",
-    address: "",
-    city: "",
-    postalCode: "",
-    country: "",
-  });
+  const [form, setForm] = useState<ContactFields>({ phone: "", email: "" });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -38,7 +40,7 @@ export const ContactStep = (props: ContactStepProps) => {
       const attributes = (
         Object.entries(form) as Array<[keyof ContactFields, string]>
       )
-        .filter(([, value]) => value !== "")
+        .filter(([key, value]) => enabledFields[key] && value !== "")
         .map(([key, value]) => ({
           attribute: `contact_information.${key}`,
           value,
@@ -64,27 +66,24 @@ export const ContactStep = (props: ContactStepProps) => {
   const fields: Array<{
     name: keyof ContactFields;
     label: string;
-    type?: string;
-    span?: 1 | 2;
-    placeholder?: string;
+    type: string;
+    placeholder: string;
   }> = [
     {
       name: "phone",
       label: "Phone",
       type: "tel",
-      span: 2,
       placeholder: "+1 555 123 4567",
     },
     {
-      name: "address",
-      label: "Street address",
-      span: 2,
-      placeholder: "123 Main Street",
+      name: "email",
+      label: "Email",
+      type: "email",
+      placeholder: "you@example.com",
     },
-    { name: "city", label: "City", placeholder: "Ljubljana" },
-    { name: "postalCode", label: "Postal code", placeholder: "1000" },
-    { name: "country", label: "Country", span: 2, placeholder: "Slovenia" },
   ];
+
+  const visible = fields.filter((f) => enabledFields[f.name]);
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col h-full">
@@ -97,24 +96,29 @@ export const ContactStep = (props: ContactStepProps) => {
         </p>
       </div>
 
-      <div className="flex-1 grid grid-cols-2 gap-3 content-start">
-        {fields.map((field) => (
-          <div
-            key={field.name}
-            className={field.span === 2 ? "col-span-2" : ""}
-          >
+      <div className="flex-1 space-y-4 content-start">
+        {visible.map((f) => (
+          <div key={f.name}>
             <label className="block text-xs font-medium text-gray-700 mb-1">
-              {field.label}
+              {f.label}
             </label>
-            <input
-              type={field.type ?? "text"}
-              name={field.name}
-              value={form[field.name]}
-              onChange={handleChange}
-              required
-              placeholder={field.placeholder}
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 placeholder:text-gray-300"
-            />
+            {f.name === "phone" ? (
+              <PhoneInput
+                value={form.phone}
+                onChange={(v) => setForm((prev) => ({ ...prev, phone: v }))}
+                required
+              />
+            ) : (
+              <input
+                type={f.type}
+                name={f.name}
+                value={form[f.name]}
+                onChange={handleChange}
+                required
+                placeholder={f.placeholder}
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 placeholder:text-gray-300"
+              />
+            )}
           </div>
         ))}
       </div>

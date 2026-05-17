@@ -146,11 +146,150 @@ export const createWorkflowSessionsService = (props: {
   const getSession = async (id: string) => {
     const session = await workflowSessionsRepository.findById(id);
     if (!session) return null;
+    // Drift handling: if the workflow has gained top-level steps since this
+    // session was created, fill in the gaps before returning. Each missing
+    // step is recorded PENDING and then auto-executed via its stub run-path,
+    // so the operator's status view is always in sync with the current
+    // workflow config without any explicit rescreen action.
+    await _evaluateWorkflowDrift(id, session.workflowId);
+
     const [steps, attributes] = await Promise.all([
       workflowSessionStepsRepository.findBySessionId(id),
       workflowSessionAttributesRepository.findBySessionId(id),
     ]);
     return { session, steps, attributes };
+  };
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Drift detection — compares the workflow's currently-enabled top-level
+  // steps to the session's recorded step rows. Anything missing gets
+  // inserted as PENDING and immediately auto-run via stubs (AML, fraud,
+  // dup, rules). Identity-verification is excluded because it's a
+  // customer-interactive widget step, not a server-side check.
+  // ──────────────────────────────────────────────────────────────────────
+  const _evaluateWorkflowDrift = async (
+    sessionId: string,
+    workflowId: string,
+  ) => {
+    const workflow =
+      await workflowsRepository.findByIdIncludingDeleted(workflowId);
+    if (!workflow) return;
+    const workflowWithSteps =
+      await workflowsRepository.findByIdWithSteps(workflowId);
+    if (!workflowWithSteps) return;
+
+    const existingSteps =
+      await workflowSessionStepsRepository.findBySessionId(sessionId);
+    const recordedTypes = new Set(existingSteps.map((s) => s.step));
+
+    // Server-side checks we know how to auto-run. Identity-verification is
+    // the customer's job (widget flow); we don't synthesise records for it.
+    const serverSideTypes: WorkflowSessionStepType[] = [
+      "aml-screening",
+      "fraud-detection",
+      "duplicate-detection",
+      "rules-engine",
+    ];
+
+    for (const wfStep of workflowWithSteps.steps) {
+      const type = wfStep.type as WorkflowSessionStepType;
+      if (!serverSideTypes.includes(type)) continue;
+      if (recordedTypes.has(type)) continue;
+      // Step is enabled in the workflow but never ran for this session —
+      // record PENDING then immediately resolve via stub.
+      await workflowSessionStepsRepository.upsert({
+        sessionId,
+        step: type,
+        status: "PENDING",
+      });
+      await _runStubFor(sessionId, type);
+    }
+  };
+
+  // Stub execution paths for the four server-side step types. Real provider
+  // integrations would replace these with calls into their respective
+  // services; for the diploma scope they auto-succeed and write a small mock
+  // attribute the reviewer can see in the session detail.
+  const _runStubFor = async (
+    sessionId: string,
+    type: WorkflowSessionStepType,
+  ) => {
+    const now = new Date().toISOString();
+    let attributes: AttributeUpsert[] = [];
+    switch (type) {
+      case "aml-screening":
+        attributes = [
+          {
+            attribute: "aml_screening.passed",
+            value: "true",
+            attributeType: "BOOLEAN",
+          },
+          {
+            attribute: "aml_screening.checked_at",
+            value: now,
+            attributeType: "DATE",
+          },
+        ];
+        break;
+      case "fraud-detection":
+        attributes = [
+          {
+            attribute: "fraud_detection.risk_score",
+            value: "0.05",
+            attributeType: "NUMBER",
+          },
+          {
+            attribute: "fraud_detection.checked_at",
+            value: now,
+            attributeType: "DATE",
+          },
+        ];
+        break;
+      case "duplicate-detection":
+        attributes = [
+          {
+            attribute: "duplicate_detection.match_found",
+            value: "false",
+            attributeType: "BOOLEAN",
+          },
+          {
+            attribute: "duplicate_detection.checked_at",
+            value: now,
+            attributeType: "DATE",
+          },
+        ];
+        break;
+      case "rules-engine":
+        attributes = [
+          {
+            attribute: "rules_engine.flagged",
+            value: "false",
+            attributeType: "BOOLEAN",
+          },
+          {
+            attribute: "rules_engine.checked_at",
+            value: now,
+            attributeType: "DATE",
+          },
+        ];
+        break;
+      default:
+        return;
+    }
+    await workflowSessionAttributesRepository.batchUpsert({
+      workflowSessionId: sessionId,
+      attributes,
+    });
+    await workflowSessionStepsRepository.upsert({
+      sessionId,
+      step: type,
+      status: "SUCCEEDED",
+    });
+    logger.info({
+      msg: "Stub-executed top-level step",
+      sessionId,
+      step: type,
+    });
   };
 
   const listForReviewQueue = async (workspaceId: string) => {

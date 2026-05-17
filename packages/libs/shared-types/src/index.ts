@@ -486,6 +486,71 @@ export type IdentityVerificationSubStepType = z.infer<
   typeof IdentityVerificationSubStepTypeEnum
 >;
 
+// Document types accepted by the ID-scan step. Mirrors the widget's
+// hardcoded picker until per-substep config exposes a subset.
+export const ID_DOCUMENT_TYPES = [
+  "PASSPORT",
+  "ID_CARD",
+  "DRIVER_LICENSE",
+] as const;
+export const IdDocumentTypeEnum = z.enum(ID_DOCUMENT_TYPES);
+export type IdDocumentType = z.infer<typeof IdDocumentTypeEnum>;
+
+export const POR_DOCUMENT_TYPES = [
+  "GAS_BILL",
+  "INTERNET_BILL",
+  "ELECTRICITY_BILL",
+  "RENT_AGREEMENT",
+  "BANK_STATEMENT",
+] as const;
+export const PorDocumentTypeEnum = z.enum(POR_DOCUMENT_TYPES);
+export type PorDocumentType = z.infer<typeof PorDocumentTypeEnum>;
+
+// providerConfig schemas, one per substep type. Stored as JSONB on the
+// substep row. Missing fields => "no restriction"; the widget applies sane
+// defaults when reading.
+export const ID_SCAN_COUNTRY_MODES = [
+  "all",
+  "allowed_only",
+  "blocked",
+] as const;
+export const IdScanCountryModeEnum = z.enum(ID_SCAN_COUNTRY_MODES);
+export type IdScanCountryMode = z.infer<typeof IdScanCountryModeEnum>;
+
+export const IdScanConfigSchema = z.object({
+  // "all": accept any country.
+  // "allowed_only": accept only countries in `countries`.
+  // "blocked": accept any country EXCEPT those in `countries`.
+  // Missing => "all" (treat `countries: [...]` as legacy allowed_only).
+  countryMode: IdScanCountryModeEnum.optional(),
+  countries: z.array(z.string()).nullable().optional(),
+  documentTypes: z.array(IdDocumentTypeEnum).optional(),
+});
+export type IdScanConfig = z.infer<typeof IdScanConfigSchema>;
+
+export const ContactInfoConfigSchema = z.object({
+  fields: z
+    .object({
+      phone: z.boolean(),
+      email: z.boolean(),
+    })
+    .optional(),
+});
+export type ContactInfoConfig = z.infer<typeof ContactInfoConfigSchema>;
+
+export const ProofOfResidenceConfigSchema = z.object({
+  documentTypes: z.array(PorDocumentTypeEnum).optional(),
+});
+export type ProofOfResidenceConfig = z.infer<
+  typeof ProofOfResidenceConfigSchema
+>;
+
+export const TermsAcceptanceConfigSchema = z.object({
+  // null/missing/empty = widget renders its built-in default TOS text.
+  termsText: z.string().nullable().optional(),
+});
+export type TermsAcceptanceConfig = z.infer<typeof TermsAcceptanceConfigSchema>;
+
 // Providers that workflows-api dispatches to via providers-api. Stubs without
 // API keys; real client code that 401s without env credentials.
 export const PROVIDER_SHORT_NAMES = [

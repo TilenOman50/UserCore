@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { isSubStepComplete } from "./lib/policy";
 import { ContactStep } from "./steps/ContactStep";
 import { DocumentStep } from "./steps/DocumentStep";
 import { EmailStep } from "./steps/EmailStep";
@@ -48,20 +49,6 @@ const SUB_STEP_ORDER: SubStepType[] = [
   "contact-information",
 ];
 
-// Attribute (or attribute prefix) that signals each substep has been
-// completed. Used to derive progress for the overview screen and to skip
-// past anything already done when the session resumes on a different device.
-const COMPLETION_KEYS: Record<SubStepType, string> = {
-  "terms-acceptance": "terms_acceptance.accepted",
-  "email-verification": "email_verification.email",
-  // Written by DocumentStep only after both front (and back, when required)
-  // uploads succeed — guarantees a partial upload doesn't mark the step done.
-  "id-scan": "identity_verification.document_complete",
-  "face-scan": "identity_verification.liveness_passed",
-  "proof-of-residence": "identity_verification.proof_of_residence_s3_key",
-  "contact-information": "contact_information.",
-};
-
 type Session = {
   id: string;
   workflowId: string;
@@ -88,6 +75,7 @@ type SubStep = {
   id: string;
   type: SubStepType;
   enabled: boolean;
+  providerConfig: unknown;
 };
 
 const apiJson = async <T,>(url: string, init?: RequestInit): Promise<T> => {
@@ -124,6 +112,12 @@ export const Widget = (props: WidgetProps) => {
   const [enabledSubSteps, setEnabledSubSteps] = useState<Set<SubStepType>>(
     new Set(),
   );
+  // Per-substep providerConfig, keyed by type — populated alongside
+  // enabledSubSteps when we fetch the identity-verification detail. Each
+  // step component reads its config from here and applies it.
+  const [subStepConfigs, setSubStepConfigs] = useState<
+    Partial<Record<SubStepType, unknown>>
+  >({});
   const [completedSubSteps, setCompletedSubSteps] = useState<Set<SubStepType>>(
     new Set(),
   );
@@ -152,6 +146,10 @@ export const Widget = (props: WidgetProps) => {
         const ivStep = wf.steps.find((s) => s.type === "identity-verification");
         setIdentityProvider(ivStep?.provider ?? null);
 
+        // Collected per-substep configs — hoisted so the completion check
+        // below can read them after the if-block populates them.
+        const configs: Partial<Record<SubStepType, unknown>> = {};
+
         if (ivStep) {
           const detail = await apiJson<{ subSteps: SubStep[] }>(
             `${workflowsApiUrl}/workflows/workflow-steps/${encodeURIComponent(ivStep.id)}/identity-verification`,
@@ -162,17 +160,29 @@ export const Widget = (props: WidgetProps) => {
               detail.subSteps.filter((s) => s.enabled).map((s) => s.type),
             ),
           );
+          for (const sub of detail.subSteps) {
+            if (sub.providerConfig != null)
+              configs[sub.type] = sub.providerConfig;
+          }
+          setSubStepConfigs(configs);
         }
 
+        // Policy-aware completion check — see lib/policy.ts. A substep is
+        // "done" only when both the data is present AND it still satisfies
+        // the current workflow config (e.g. TOC text unchanged since
+        // acceptance, customer's submitted country still in the allowlist).
         const completed = new Set<SubStepType>();
         for (const sub of SUB_STEP_ORDER) {
-          const key = COMPLETION_KEYS[sub];
-          const hasIt = sessionDetail.attributes.some((a) =>
-            key.endsWith(".")
-              ? a.attribute.startsWith(key)
-              : a.attribute === key,
-          );
-          if (hasIt) completed.add(sub);
+          const checker = isSubStepComplete[sub];
+          if (
+            checker &&
+            checker({
+              attributes: sessionDetail.attributes,
+              config: configs[sub],
+            })
+          ) {
+            completed.add(sub);
+          }
         }
         setCompletedSubSteps(completed);
         setBooted(true);
@@ -229,15 +239,22 @@ export const Widget = (props: WidgetProps) => {
         );
         if (hasHandoff) setPhase("handed-off");
 
+        // Same policy-aware completion logic as boot — see lib/policy.ts.
+        // Uses the configs we already fetched once at boot; if those change
+        // server-side mid-session, the customer would see the stale "done"
+        // state until the page reloads, which is fine for the diploma scope.
         const completed = new Set<SubStepType>();
         for (const sub of SUB_STEP_ORDER) {
-          const key = COMPLETION_KEYS[sub];
-          const hasIt = detail.attributes.some((a) =>
-            key.endsWith(".")
-              ? a.attribute.startsWith(key)
-              : a.attribute === key,
-          );
-          if (hasIt) completed.add(sub);
+          const checker = isSubStepComplete[sub];
+          if (
+            checker &&
+            checker({
+              attributes: detail.attributes,
+              config: subStepConfigs[sub],
+            })
+          ) {
+            completed.add(sub);
+          }
         }
         setCompletedSubSteps((prev) => {
           if (
@@ -257,7 +274,7 @@ export const Widget = (props: WidgetProps) => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [mobileUrl, workflowsApiUrl, sessionId]);
+  }, [mobileUrl, workflowsApiUrl, sessionId, subStepConfigs]);
 
   const orderedSteps = useMemo(
     () => SUB_STEP_ORDER.filter((t) => enabledSubSteps.has(t)),
@@ -403,6 +420,11 @@ export const Widget = (props: WidgetProps) => {
           workflowsApiUrl={workflowsApiUrl}
           sessionId={sessionId}
           onComplete={onStepComplete}
+          config={
+            subStepConfigs["terms-acceptance"] as
+              | { termsText?: string | null }
+              | undefined
+          }
         />
       )}
       {stepType === "email-verification" && (
@@ -418,6 +440,15 @@ export const Widget = (props: WidgetProps) => {
           sessionId={sessionId}
           onComplete={onStepComplete}
           showCameraCapture={!!isHandoff}
+          config={
+            subStepConfigs["id-scan"] as
+              | {
+                  countryMode?: "all" | "allowed_only" | "blocked";
+                  countries?: string[] | null;
+                  documentTypes?: string[];
+                }
+              | undefined
+          }
         />
       )}
       {stepType === "face-scan" && (
@@ -433,6 +464,11 @@ export const Widget = (props: WidgetProps) => {
           sessionId={sessionId}
           onComplete={onStepComplete}
           showCameraCapture={!!isHandoff}
+          config={
+            subStepConfigs["proof-of-residence"] as
+              | { documentTypes?: string[] }
+              | undefined
+          }
         />
       )}
       {stepType === "contact-information" && (
@@ -440,6 +476,11 @@ export const Widget = (props: WidgetProps) => {
           workflowsApiUrl={workflowsApiUrl}
           sessionId={sessionId}
           onComplete={onStepComplete}
+          config={
+            subStepConfigs["contact-information"] as
+              | { fields?: { phone: boolean; email: boolean } }
+              | undefined
+          }
         />
       )}
     </Shell>

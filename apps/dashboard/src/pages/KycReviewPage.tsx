@@ -132,6 +132,30 @@ const SessionDetail = ({
   );
   const overallStatus = ivStep?.status ?? "PENDING";
 
+  // Server-side checks the drift-evaluator runs automatically. We surface
+  // them here so the reviewer can see each one's outcome alongside the
+  // identity-verification result.
+  const TOP_LEVEL_LABELS: Record<string, string> = {
+    "identity-verification": "Identity verification",
+    "aml-screening": "AML screening",
+    "fraud-detection": "Fraud detection",
+    "duplicate-detection": "Duplicate detection",
+    "rules-engine": "Rules engine",
+  };
+  const topLevelOrder = [
+    "identity-verification",
+    "aml-screening",
+    "fraud-detection",
+    "duplicate-detection",
+    "rules-engine",
+  ];
+  const recordedSteps = new Map(
+    detail.data.steps.map((s) => [s.step, s.status]),
+  );
+  const stepRows = topLevelOrder
+    .filter((t) => recordedSteps.has(t))
+    .map((t) => ({ type: t, status: recordedSteps.get(t)! }));
+
   return (
     <div className="space-y-4">
       <div className="bg-white border border-gray-200 rounded-xl p-5">
@@ -159,6 +183,39 @@ const SessionDetail = ({
           </span>
         </div>
       </div>
+
+      {stepRows.length > 1 && (
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">
+            Workflow steps
+          </h3>
+          <div className="space-y-2">
+            {stepRows.map((row) => (
+              <div
+                key={row.type}
+                className="flex items-center justify-between text-sm"
+              >
+                <span className="text-gray-800">
+                  {TOP_LEVEL_LABELS[row.type] ?? row.type}
+                </span>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded ${
+                    row.status === "REQUIRES_REVIEW"
+                      ? "bg-yellow-100 text-yellow-700"
+                      : row.status === "SUCCEEDED"
+                        ? "bg-primary-100 text-primary-700"
+                        : row.status === "FAILED"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-gray-100 text-gray-600"
+                  }`}
+                >
+                  {row.status.toLowerCase().replace("_", " ")}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {documentFront.data?.url && (
         <div className="bg-white border border-gray-200 rounded-xl p-5">

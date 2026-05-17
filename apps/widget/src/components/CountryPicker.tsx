@@ -5,6 +5,9 @@ import { COUNTRIES } from "../lib/countries";
 type Props = {
   value: string;
   onChange: (code: string) => void;
+  // Optional allowlist — when provided, only these countries appear. Used by
+  // the ID-scan step to honour the admin's per-substep country restriction.
+  countries?: { code: string; name: string }[];
 };
 
 // The flag-icons package ships ~250 SVGs and exposes them as background
@@ -21,7 +24,11 @@ const Flag = ({ code }: { code: string }) => (
 // Searchable country picker with flag + name. Custom because <select> can't
 // render emoji consistently inside <option> across browsers and gives us no
 // search affordance beyond first-letter type-ahead.
-export const CountryPicker = ({ value, onChange }: Props) => {
+export const CountryPicker = ({
+  value,
+  onChange,
+  countries = COUNTRIES,
+}: Props) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -38,16 +45,16 @@ export const CountryPicker = ({ value, onChange }: Props) => {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const selected = COUNTRIES.find((c) => c.code === value);
+  const selected = countries.find((c) => c.code === value);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return COUNTRIES;
-    return COUNTRIES.filter(
+    if (!q) return countries;
+    return countries.filter(
       (c) =>
         c.name.toLowerCase().includes(q) || c.code.toLowerCase().startsWith(q),
     );
-  }, [search]);
+  }, [countries, search]);
 
   return (
     <div ref={ref} className="relative">
@@ -100,7 +107,7 @@ export const CountryPicker = ({ value, onChange }: Props) => {
               className="w-full px-2 py-1.5 text-sm border-0 focus:outline-none placeholder:text-gray-400"
             />
           </div>
-          <div className="overflow-y-auto flex-1">
+          <div className="overflow-y-auto no-scrollbar flex-1">
             {filtered.length === 0 ? (
               <div className="px-3 py-4 text-sm text-gray-500 text-center">
                 No countries match &quot;{search}&quot;.

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type EmailStepProps = {
   workflowsApiUrl: string;
@@ -40,7 +40,7 @@ export const EmailStep = (props: EmailStepProps) => {
     }
   };
 
-  const verifyCode = async () => {
+  const verifyCode = async (codeToCheck: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -49,7 +49,7 @@ export const EmailStep = (props: EmailStepProps) => {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, code }),
+          body: JSON.stringify({ email, code: codeToCheck }),
         },
       );
       if (!res.ok) {
@@ -64,12 +64,29 @@ export const EmailStep = (props: EmailStepProps) => {
     }
   };
 
+  // Auto-verify the moment the user finishes typing the 6th digit — no need
+  // to make them tap Continue. We gate on `loading` so paste-then-edit edge
+  // cases don't fire multiple requests.
+  const lastAttempted = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      stage === "enter-code" &&
+      code.length === 6 &&
+      !loading &&
+      lastAttempted.current !== code
+    ) {
+      lastAttempted.current = code;
+      void verifyCode(code);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, stage, loading]);
+
   if (stage === "enter-code") {
     return (
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          void verifyCode();
+          void verifyCode(code);
         }}
         className="flex flex-col h-full"
       >

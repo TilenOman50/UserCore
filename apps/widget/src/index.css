@@ -4,6 +4,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide native scrollbars while preserving scrollability — keeps the
+   widget visually clean on long-content steps (Terms, POR address form). */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 :root {
   --color-primary: #c0e1d2;
 }

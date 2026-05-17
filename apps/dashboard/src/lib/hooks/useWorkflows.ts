@@ -274,6 +274,26 @@ export const useToggleSubStep = () => {
   });
 };
 
+// Writes per-substep providerConfig JSON. Each substep type has its own
+// shape (see shared-types: IdScanConfig, ContactInfoConfig, …). We keep the
+// hook generic so all four editors share it.
+export const useUpdateSubStepConfig = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { subStepId: string; providerConfig: unknown }) =>
+      apiFetch(
+        `${WORKFLOWS_API_URL}/workflows/identity-verification/sub-steps/${encodeURIComponent(data.subStepId)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ providerConfig: data.providerConfig }),
+        },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["identity-verification"] });
+    },
+  });
+};
+
 export const useSetIdentityProvider = () => {
   const qc = useQueryClient();
   return useMutation({

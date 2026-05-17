@@ -1,13 +1,21 @@
 import { useState } from "react";
 
+import { getActiveTermsText, hashText } from "../lib/policy";
+
 type TermsStepProps = {
   workflowsApiUrl: string;
   sessionId: string;
   onComplete: () => void;
+  // Admin-configurable override of the consent text. When null/missing we
+  // render the built-in default below.
+  config?: { termsText?: string | null };
 };
 
 export const TermsStep = (props: TermsStepProps) => {
-  const { workflowsApiUrl, sessionId, onComplete } = props;
+  const { workflowsApiUrl, sessionId, onComplete, config } = props;
+  // Use the same source of truth the completion checker uses, so the
+  // policy hash we persist will match what boot recomputes later.
+  const activeText = getActiveTermsText(config);
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +43,14 @@ export const TermsStep = (props: TermsStepProps) => {
                 value: new Date().toISOString(),
                 attributeType: "DATE",
               },
+              // Hash of the exact text the user just agreed to. If the admin
+              // edits the terms later, boot's completion check will see the
+              // hash mismatch and re-prompt the customer.
+              {
+                attribute: "terms_acceptance.policy_hash",
+                value: hashText(activeText),
+                attributeType: "STRING",
+              },
             ],
           }),
         },
@@ -59,29 +75,12 @@ export const TermsStep = (props: TermsStepProps) => {
         </p>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl p-4 leading-relaxed space-y-3">
-        <p className="font-semibold text-gray-800">
-          UserCore identity verification — consent
-        </p>
-        <p>
-          By proceeding, you authorise UserCore and the operator of this
-          workflow to collect, process and store the personal information you
-          provide for the purpose of verifying your identity. This may include
-          identity documents, a selfie video, contact details and proof of
-          residence.
-        </p>
-        <p>
-          Your data is retained for as long as required to meet applicable
-          regulatory obligations and is processed in accordance with the
-          operator's privacy policy. You may withdraw consent at any time by
-          contacting the operator, in which case the verification cannot be
-          completed.
-        </p>
-        <p>
-          You confirm that the information and documents you submit belong to
-          you and are accurate. Submitting forged or stolen documents is a
-          criminal offence in most jurisdictions.
-        </p>
+      <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl p-4 leading-relaxed">
+        {/* Render whatever active text the policy module gave us — that's
+            also what we hash on submit, so there's a single source of truth.
+            whitespace-pre-wrap preserves paragraph breaks for both the
+            built-in default and any admin-authored text. */}
+        <p className="whitespace-pre-wrap">{activeText}</p>
       </div>
 
       <label className="mt-4 flex items-start gap-2.5 cursor-pointer select-none">

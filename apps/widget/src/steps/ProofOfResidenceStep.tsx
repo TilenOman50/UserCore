@@ -1,5 +1,8 @@
 import { useRef, useState } from "react";
 
+import { CountryPicker } from "../components/CountryPicker";
+import { SelectField } from "../components/SelectField";
+
 type ProofOfResidenceStepProps = {
   workflowsApiUrl: string;
   sessionId: string;
@@ -7,6 +10,18 @@ type ProofOfResidenceStepProps = {
   // True when the widget is loaded on a phone via the handoff QR — only then
   // does the camera button make sense.
   showCameraCapture?: boolean;
+  // Admin-configured allowlist of accepted POR documents. When missing we
+  // show all three. Address fields below are always required and aren't
+  // configurable per substep.
+  config?: { documentTypes?: string[] };
+};
+
+const POR_DOC_LABELS: Record<string, string> = {
+  GAS_BILL: "Gas bill",
+  INTERNET_BILL: "Internet bill",
+  ELECTRICITY_BILL: "Electricity bill",
+  RENT_AGREEMENT: "Rent agreement",
+  BANK_STATEMENT: "Bank statement",
 };
 
 const CameraIcon = () => (
@@ -25,10 +40,41 @@ const CameraIcon = () => (
   </svg>
 );
 
+type Address = {
+  street: string;
+  city: string;
+  postalCode: string;
+  country: string;
+};
+
 export const ProofOfResidenceStep = (props: ProofOfResidenceStepProps) => {
-  const { workflowsApiUrl, sessionId, onComplete, showCameraCapture } = props;
+  const { workflowsApiUrl, sessionId, onComplete, showCameraCapture, config } =
+    props;
+  const allowedTypes =
+    config?.documentTypes && config.documentTypes.length > 0
+      ? config.documentTypes
+      : [
+          "GAS_BILL",
+          "INTERNET_BILL",
+          "ELECTRICITY_BILL",
+          "RENT_AGREEMENT",
+          "BANK_STATEMENT",
+        ];
+
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  // Customer-picked doc type. Persisted as an attribute so the policy
+  // checker can compare against the admin's current allowlist on resume —
+  // if the admin removes the chosen type later, the step re-prompts.
+  const [documentType, setDocumentType] = useState<string>(
+    allowedTypes[0] ?? "",
+  );
+  const [address, setAddress] = useState<Address>({
+    street: "",
+    city: "",
+    postalCode: "",
+    country: "",
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -43,23 +89,33 @@ export const ProofOfResidenceStep = (props: ProofOfResidenceStepProps) => {
     );
   };
 
+  const onAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAddress((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const ready =
+    file !== null &&
+    documentType !== "" &&
+    address.street.trim() !== "" &&
+    address.city.trim() !== "" &&
+    address.postalCode.trim() !== "" &&
+    address.country.trim() !== "";
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) {
-      setError("Please choose a file");
+    if (!ready) {
+      setError("Please upload the document and fill in your address.");
       return;
     }
     setLoading(true);
     setError(null);
     try {
       const formData = new FormData();
-      // Force a filename — iOS camera capture sometimes returns a file with
-      // no name and the server multipart parser then drops the part.
       const filename =
-        file.name && file.name.length > 0
-          ? file.name
+        file!.name && file!.name.length > 0
+          ? file!.name
           : `proof-${Date.now()}.jpg`;
-      formData.append("file", file, filename);
+      formData.append("file", file!, filename);
       const upload = await fetch(
         `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(sessionId)}/files/proof_of_residence`,
         { method: "POST", body: formData },
@@ -68,6 +124,55 @@ export const ProofOfResidenceStep = (props: ProofOfResidenceStepProps) => {
         const body = await upload.text().catch(() => "");
         throw new Error(`Upload failed (${upload.status}) ${body}`);
       }
+
+      const attrRes = await fetch(
+        `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(sessionId)}/attributes`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            attributes: [
+              {
+                attribute: "proof_of_residence.document_type",
+                value: documentType,
+                attributeType: "STRING",
+              },
+              {
+                attribute: "address.street",
+                value: address.street,
+                attributeType: "STRING",
+              },
+              {
+                attribute: "address.city",
+                value: address.city,
+                attributeType: "STRING",
+              },
+              {
+                attribute: "address.postal_code",
+                value: address.postalCode,
+                attributeType: "STRING",
+              },
+              {
+                attribute: "address.country",
+                value: address.country,
+                attributeType: "STRING",
+              },
+              // Marker that signals both upload + address form are done. The
+              // widget's overview keys off this to mark POR complete (rather
+              // than the bare s3_key) so a half-done submission can't pass.
+              {
+                attribute: "proof_of_residence.complete",
+                value: "true",
+                attributeType: "BOOLEAN",
+              },
+            ],
+          }),
+        },
+      );
+      if (!attrRes.ok) {
+        throw new Error(`Attribute write failed (${attrRes.status})`);
+      }
+
       onComplete();
     } catch (err) {
       setError(
@@ -92,89 +197,119 @@ export const ProofOfResidenceStep = (props: ProofOfResidenceStepProps) => {
         </p>
       </div>
 
-      <ul className="mb-4 text-xs text-gray-500 space-y-1">
-        <li className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-primary-400" />
-          Utility bill (gas, electricity, water)
-        </li>
-        <li className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-primary-400" />
-          Bank or credit-card statement
-        </li>
-        <li className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-primary-400" />
-          Official government letter
-        </li>
-      </ul>
-
-      <div
-        onClick={() => fileRef.current?.click()}
-        className="flex-1 min-h-[180px] border-2 border-dashed border-gray-200 hover:border-primary-300 rounded-xl p-4 text-center cursor-pointer transition-colors flex items-center justify-center"
-      >
-        {preview ? (
-          <img
-            src={preview}
-            alt="Document preview"
-            className="max-h-full max-w-full rounded-lg object-contain"
-          />
-        ) : file ? (
-          <div className="text-gray-600 text-sm">
-            <div className="mx-auto mb-3 w-12 h-12 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-500">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-              </svg>
-            </div>
-            <p className="font-medium truncate max-w-xs">{file.name}</p>
-            <p className="text-xs text-gray-400 mt-1">
-              {(file.size / 1024).toFixed(0)} KB
-            </p>
-          </div>
-        ) : (
-          <div className="text-gray-400">
-            <div className="mx-auto mb-3 w-12 h-12 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-500">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M3 9.5 12 4l9 5.5" />
-                <path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9" />
-                <path d="M9 22V12h6v10" />
-              </svg>
-            </div>
-            <p className="text-sm font-medium text-gray-600">Click to upload</p>
-            <p className="text-xs mt-1 text-gray-400">
-              JPG, PNG or PDF, up to 10MB
-            </p>
-          </div>
-        )}
+      <div className="mb-4">
+        <label className="block text-xs font-medium text-gray-700 mb-1.5">
+          Document type
+        </label>
+        <SelectField
+          value={documentType}
+          onChange={setDocumentType}
+          options={allowedTypes.map((t) => ({
+            value: t,
+            label: POR_DOC_LABELS[t] ?? t,
+          }))}
+        />
       </div>
 
-      {showCameraCapture && (
-        <button
-          type="button"
-          onClick={() => cameraRef.current?.click()}
-          className="mt-3 inline-flex items-center justify-center gap-2 py-2 px-3 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700 self-stretch"
+      <div className="flex-1 overflow-y-auto no-scrollbar space-y-3">
+        <div
+          onClick={() => fileRef.current?.click()}
+          className="min-h-[140px] border-2 border-dashed border-gray-200 hover:border-primary-300 rounded-xl p-3 text-center cursor-pointer transition-colors flex items-center justify-center"
         >
-          <CameraIcon />
-          Take photo with camera
-        </button>
-      )}
+          {preview ? (
+            <img
+              src={preview}
+              alt="Document preview"
+              className="max-h-32 max-w-full rounded-lg object-contain"
+            />
+          ) : file ? (
+            <div className="text-gray-600 text-sm">
+              <p className="font-medium truncate max-w-xs">{file.name}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {(file.size / 1024).toFixed(0)} KB
+              </p>
+            </div>
+          ) : (
+            <div className="text-gray-400">
+              <p className="text-xs font-medium text-gray-600">
+                Click to upload
+              </p>
+              <p className="text-[10px] mt-0.5 text-gray-400">
+                JPG, PNG or PDF
+              </p>
+            </div>
+          )}
+        </div>
+
+        {showCameraCapture && (
+          <button
+            type="button"
+            onClick={() => cameraRef.current?.click()}
+            className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700"
+          >
+            <CameraIcon />
+            Take photo with camera
+          </button>
+        )}
+
+        <div className="border-t border-gray-100 pt-3 space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Street address
+            </label>
+            <input
+              type="text"
+              name="street"
+              value={address.street}
+              onChange={onAddressChange}
+              required
+              placeholder="123 Main Street"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 placeholder:text-gray-300"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                City
+              </label>
+              <input
+                type="text"
+                name="city"
+                value={address.city}
+                onChange={onAddressChange}
+                required
+                placeholder="Ljubljana"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 placeholder:text-gray-300"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Postal code
+              </label>
+              <input
+                type="text"
+                name="postalCode"
+                value={address.postalCode}
+                onChange={onAddressChange}
+                required
+                placeholder="1000"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 placeholder:text-gray-300"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Country
+            </label>
+            <CountryPicker
+              value={address.country}
+              onChange={(code) =>
+                setAddress((prev) => ({ ...prev, country: code }))
+              }
+            />
+          </div>
+        </div>
+      </div>
 
       <input
         ref={fileRef}
@@ -198,7 +333,7 @@ export const ProofOfResidenceStep = (props: ProofOfResidenceStepProps) => {
 
       <button
         type="submit"
-        disabled={loading || !file}
+        disabled={loading || !ready}
         className="mt-4 w-full py-3 px-4 bg-primary-200 hover:bg-primary-300 disabled:opacity-50 disabled:cursor-not-allowed text-primary-800 font-semibold rounded-xl transition-colors text-sm"
       >
         {loading ? "Uploading…" : "Continue"}

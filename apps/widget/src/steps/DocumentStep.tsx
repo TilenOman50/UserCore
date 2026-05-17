@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
 
 import { CountryPicker } from "../components/CountryPicker";
+import { SelectField } from "../components/SelectField";
+import { COUNTRIES } from "../lib/countries";
 
 type DocumentStepProps = {
   workflowsApiUrl: string;
@@ -9,6 +11,16 @@ type DocumentStepProps = {
   // True when the widget is loaded on a phone via the handoff QR — only then
   // does the camera button make sense. Desktop sticks with the file picker.
   showCameraCapture?: boolean;
+  // Admin-configured country + document-type rules.
+  //   countryMode "all"          → any country (default)
+  //   countryMode "allowed_only" → only countries listed in `countries`
+  //   countryMode "blocked"      → any country EXCEPT those in `countries`
+  // documentTypes missing/empty → all three types allowed.
+  config?: {
+    countryMode?: "all" | "allowed_only" | "blocked";
+    countries?: string[] | null;
+    documentTypes?: string[];
+  };
 };
 
 type Side = "front" | "back";
@@ -35,13 +47,45 @@ const DOCUMENT_TYPES = [
   { value: "DRIVER_LICENSE", label: "Driver's licence" },
 ];
 
+const ALL_DOC_TYPE_VALUES = ["PASSPORT", "ID_CARD", "DRIVER_LICENSE"];
+
 const requiresBack = (type: string) =>
   type === "ID_CARD" || type === "DRIVER_LICENSE";
 
 export const DocumentStep = (props: DocumentStepProps) => {
-  const { workflowsApiUrl, sessionId, onComplete, showCameraCapture } = props;
-  const [country, setCountry] = useState("SI");
-  const [documentType, setDocumentType] = useState("PASSPORT");
+  const { workflowsApiUrl, sessionId, onComplete, showCameraCapture, config } =
+    props;
+
+  // Resolve the country list the widget should offer.
+  // - "all" (or missing mode + no list): full ISO set.
+  // - "allowed_only": only the listed codes.
+  // - "blocked": every code EXCEPT the listed ones.
+  // Backwards-compat: a non-empty `countries` with no mode is treated as
+  // legacy allowed_only to match the original (pre-mode) schema.
+  const inferredMode =
+    config?.countryMode ??
+    (config?.countries && config.countries.length > 0 ? "allowed_only" : "all");
+  const listed = new Set(config?.countries ?? []);
+  const allowedCountries =
+    inferredMode === "all"
+      ? COUNTRIES
+      : inferredMode === "blocked"
+        ? COUNTRIES.filter((c) => !listed.has(c.code))
+        : COUNTRIES.filter((c) => listed.has(c.code));
+  const docTypeValues =
+    config?.documentTypes && config.documentTypes.length > 0
+      ? config.documentTypes
+      : ALL_DOC_TYPE_VALUES;
+  const allowedDocTypes = DOCUMENT_TYPES.filter((t) =>
+    docTypeValues.includes(t.value),
+  );
+
+  // No pre-selected country — the customer has to actively pick. The
+  // CountryPicker shows "Select country" until then.
+  const [country, setCountry] = useState("");
+  const [documentType, setDocumentType] = useState(
+    allowedDocTypes[0]?.value ?? "PASSPORT",
+  );
   const [files, setFiles] = useState<Record<Side, File | null>>({
     front: null,
     back: null,
@@ -72,7 +116,10 @@ export const DocumentStep = (props: DocumentStepProps) => {
     };
 
   const needsBack = requiresBack(documentType);
-  const ready = files.front !== null && (!needsBack || files.back !== null);
+  const ready =
+    country !== "" &&
+    files.front !== null &&
+    (!needsBack || files.back !== null);
 
   const uploadOne = async (
     file: File,
@@ -174,39 +221,35 @@ export const DocumentStep = (props: DocumentStepProps) => {
         <label className="block text-xs font-medium text-gray-700 mb-1.5">
           Country of issue
         </label>
-        <CountryPicker value={country} onChange={setCountry} />
+        <CountryPicker
+          value={country}
+          onChange={setCountry}
+          countries={allowedCountries}
+        />
       </div>
 
       <div className="mb-4">
-        <label className="block text-xs font-medium text-gray-700 mb-2">
+        <label className="block text-xs font-medium text-gray-700 mb-1.5">
           Document type
         </label>
-        <div className="grid grid-cols-3 gap-2">
-          {DOCUMENT_TYPES.map((type) => (
-            <button
-              key={type.value}
-              type="button"
-              onClick={() => {
-                setDocumentType(type.value);
-                // Reset back if user switches to passport.
-                if (!requiresBack(type.value)) {
-                  setFiles((prev) => ({ ...prev, back: null }));
-                  setPreviews((prev) => ({ ...prev, back: null }));
-                }
-              }}
-              className={`text-xs font-medium py-2 rounded-lg border transition-colors ${
-                documentType === type.value
-                  ? "bg-primary-100 border-primary-300 text-primary-800"
-                  : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-              }`}
-            >
-              {type.label}
-            </button>
-          ))}
-        </div>
+        <SelectField
+          value={documentType}
+          onChange={(value) => {
+            setDocumentType(value);
+            // Reset back if user switches to passport.
+            if (!requiresBack(value)) {
+              setFiles((prev) => ({ ...prev, back: null }));
+              setPreviews((prev) => ({ ...prev, back: null }));
+            }
+          }}
+          options={allowedDocTypes.map((t) => ({
+            value: t.value,
+            label: t.label,
+          }))}
+        />
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto">
+      <div className="flex-1 space-y-3 overflow-y-auto no-scrollbar">
         <UploadZone
           label={needsBack ? "Front" : "Photo page"}
           preview={previews.front}
