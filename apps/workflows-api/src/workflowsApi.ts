@@ -94,6 +94,7 @@ export const createWorkflowsApi = async (props: {
   const workflowsService = createWorkflowsService({
     workflowsRepository,
     workflowStepsRepository,
+    storageService,
     logger,
   });
   const identityVerificationService = createIdentityVerificationService({
@@ -148,6 +149,9 @@ export const createWorkflowsApi = async (props: {
   const mailer = createMailer({ logger });
   const emailVerificationService = createEmailVerificationService({
     attributesRepository: workflowSessionAttributesRepository,
+    sessionsRepository: workflowSessionsRepository,
+    workflowsRepository,
+    storageService,
     mailer,
     logger,
   });

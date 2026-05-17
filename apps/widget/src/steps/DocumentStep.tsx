@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { CountryPicker } from "../components/CountryPicker";
 import { SelectField } from "../components/SelectField";
 import { COUNTRIES } from "../lib/countries";
+import { t } from "../lib/i18n";
 
 type DocumentStepProps = {
   workflowsApiUrl: string;
@@ -41,10 +42,10 @@ const CameraIcon = () => (
   </svg>
 );
 
-const DOCUMENT_TYPES = [
-  { value: "PASSPORT", label: "Passport" },
-  { value: "ID_CARD", label: "National ID" },
-  { value: "DRIVER_LICENSE", label: "Driver's licence" },
+const docTypeOptions = () => [
+  { value: "PASSPORT", label: t("doc.passport") },
+  { value: "ID_CARD", label: t("doc.idCard") },
+  { value: "DRIVER_LICENSE", label: t("doc.driverLicense") },
 ];
 
 const ALL_DOC_TYPE_VALUES = ["PASSPORT", "ID_CARD", "DRIVER_LICENSE"];
@@ -76,8 +77,8 @@ export const DocumentStep = (props: DocumentStepProps) => {
     config?.documentTypes && config.documentTypes.length > 0
       ? config.documentTypes
       : ALL_DOC_TYPE_VALUES;
-  const allowedDocTypes = DOCUMENT_TYPES.filter((t) =>
-    docTypeValues.includes(t.value),
+  const allowedDocTypes = docTypeOptions().filter((opt) =>
+    docTypeValues.includes(opt.value),
   );
 
   // No pre-selected country — the customer has to actively pick. The
@@ -146,8 +147,8 @@ export const DocumentStep = (props: DocumentStepProps) => {
     if (!ready) {
       setError(
         needsBack && !files.back
-          ? "Please add a photo of the back of the document."
-          : "Please add a photo of the document.",
+          ? t("doc.errorMissingBack")
+          : t("doc.errorMissingFront"),
       );
       return;
     }
@@ -199,7 +200,7 @@ export const DocumentStep = (props: DocumentStepProps) => {
       setError(
         err instanceof Error && err.message
           ? err.message
-          : "Upload failed. Please try again.",
+          : t("doc.errorUpload"),
       );
     } finally {
       setLoading(false);
@@ -210,16 +211,14 @@ export const DocumentStep = (props: DocumentStepProps) => {
     <form onSubmit={handleSubmit} className="flex flex-col h-full">
       <div className="mb-4">
         <h2 className="text-xl font-semibold text-gray-900">
-          Identity document
+          {t("doc.title")}
         </h2>
-        <p className="text-sm text-gray-500 mt-1">
-          Upload a clear photo of your government-issued ID.
-        </p>
+        <p className="text-sm text-gray-500 mt-1">{t("doc.subtitle")}</p>
       </div>
 
       <div className="mb-4">
         <label className="block text-xs font-medium text-gray-700 mb-1.5">
-          Country of issue
+          {t("doc.country")}
         </label>
         <CountryPicker
           value={country}
@@ -230,7 +229,7 @@ export const DocumentStep = (props: DocumentStepProps) => {
 
       <div className="mb-4">
         <label className="block text-xs font-medium text-gray-700 mb-1.5">
-          Document type
+          {t("doc.type")}
         </label>
         <SelectField
           value={documentType}
@@ -242,16 +241,16 @@ export const DocumentStep = (props: DocumentStepProps) => {
               setPreviews((prev) => ({ ...prev, back: null }));
             }
           }}
-          options={allowedDocTypes.map((t) => ({
-            value: t.value,
-            label: t.label,
+          options={allowedDocTypes.map((opt) => ({
+            value: opt.value,
+            label: opt.label,
           }))}
         />
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto no-scrollbar">
         <UploadZone
-          label={needsBack ? "Front" : "Photo page"}
+          label={needsBack ? t("doc.front") : t("doc.photoPage")}
           preview={previews.front}
           file={files.front}
           onClick={() => frontFileRef.current?.click()}
@@ -263,7 +262,7 @@ export const DocumentStep = (props: DocumentStepProps) => {
         />
         {needsBack && (
           <UploadZone
-            label="Back"
+            label={t("doc.back")}
             preview={previews.back}
             file={files.back}
             onClick={() => backFileRef.current?.click()}
@@ -318,7 +317,7 @@ export const DocumentStep = (props: DocumentStepProps) => {
         disabled={loading || !ready}
         className="mt-4 w-full py-3 px-4 bg-primary-200 hover:bg-primary-300 disabled:opacity-50 disabled:cursor-not-allowed text-primary-800 font-semibold rounded-xl transition-colors text-sm"
       >
-        {loading ? "Uploading…" : "Continue"}
+        {loading ? t("doc.uploading") : t("doc.continue")}
       </button>
     </form>
   );
@@ -373,8 +372,12 @@ const UploadZone = ({
               <polyline points="14 2 14 8 20 8" />
             </svg>
           </div>
-          <p className="text-xs font-medium text-gray-600">Click to upload</p>
-          <p className="text-[10px] mt-0.5 text-gray-400">JPG or PNG</p>
+          <p className="text-xs font-medium text-gray-600">
+            {t("doc.clickToUpload")}
+          </p>
+          <p className="text-[10px] mt-0.5 text-gray-400">
+            {t("doc.uploadHint")}
+          </p>
         </div>
       )}
     </div>
@@ -388,7 +391,7 @@ const UploadZone = ({
         className="mt-2 w-full inline-flex items-center justify-center gap-2 py-2 px-3 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700"
       >
         <CameraIcon />
-        Take photo
+        {t("doc.takePhoto")}
       </button>
     )}
   </div>

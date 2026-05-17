@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
+import { t } from "../lib/i18n";
+
 type Option = { value: string; label: string };
 
 // Custom dropdown that matches the rest of the widget chrome — same border,
@@ -50,7 +52,7 @@ export const SelectField = ({
             selected ? "text-gray-900" : "text-gray-400"
           }`}
         >
-          {selected?.label ?? "Select…"}
+          {selected?.label ?? t("common.select")}
         </span>
         <svg
           aria-hidden

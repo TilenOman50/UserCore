@@ -27,7 +27,13 @@ export const createEmailVerificationRouter = (props: {
           body: {
             content: {
               "application/json": {
-                schema: z.object({ email: z.string().email() }),
+                schema: z.object({
+                  email: z.string().email(),
+                  // Customer's chosen widget language; the email body and
+                  // subject render in this language. Optional — falls back
+                  // to English in the service.
+                  locale: z.string().optional(),
+                }),
               },
             },
           },
@@ -42,11 +48,12 @@ export const createEmailVerificationRouter = (props: {
       }),
       async (c) => {
         const { id } = c.req.valid("param");
-        const { email } = c.req.valid("json");
+        const { email, locale } = c.req.valid("json");
         try {
           await emailVerificationService.sendCode({
             workflowSessionId: id,
             email,
+            locale: locale ?? null,
           });
           return c.body(null, 204);
         } catch (err) {

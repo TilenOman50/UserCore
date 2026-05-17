@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 
+import { t } from "../lib/i18n";
+
 type LivenessStepProps = {
   workflowsApiUrl: string;
   sessionId: string;
@@ -10,17 +12,17 @@ type LivenessStepProps = {
 type Check = "face_detected" | "blink_detected" | "head_turn";
 type CheckStatus = "pending" | "passed" | "failed";
 
-const CHECK_LABELS: Record<Check, string> = {
-  face_detected: "Face detected",
-  blink_detected: "Blink detected",
-  head_turn: "Head turn",
-};
+const checkLabels = (): Record<Check, string> => ({
+  face_detected: t("liveness.checkFace"),
+  blink_detected: t("liveness.checkBlink"),
+  head_turn: t("liveness.checkTurn"),
+});
 
-const INSTRUCTIONS: Record<Check, string> = {
-  face_detected: "Centre your face in the frame",
-  blink_detected: "Now blink your eyes",
-  head_turn: "Slowly turn your head left, then right",
-};
+const instructions = (): Record<Check, string> => ({
+  face_detected: t("liveness.instructFace"),
+  blink_detected: t("liveness.instructBlink"),
+  head_turn: t("liveness.instructTurn"),
+});
 
 // MediaPipe's eye-blink blendshapes are 0 (open) → 1 (closed). We require the
 // user's eyes to have been open at some point (so a freeze-frame photo of a
@@ -72,7 +74,7 @@ export const LivenessStep = (props: LivenessStepProps) => {
         });
         setLandmarker(lm);
       } catch {
-        setError("Failed to load face landmarker model.");
+        setError(t("liveness.modelFailed"));
       }
     };
     void loadMediaPipe();
@@ -88,9 +90,7 @@ export const LivenessStep = (props: LivenessStepProps) => {
         runDetectionLoop(stream);
       }
     } catch {
-      setError(
-        "Camera access denied. Please allow camera access and try again.",
-      );
+      setError(t("liveness.cameraDenied"));
       setStatus("error");
     }
   };
@@ -227,7 +227,7 @@ export const LivenessStep = (props: LivenessStepProps) => {
 
       setTimeout(onComplete, 1500);
     } catch {
-      setError("Failed to submit liveness results. Please try again.");
+      setError(t("liveness.submitError"));
     }
   };
 
@@ -253,17 +253,19 @@ export const LivenessStep = (props: LivenessStepProps) => {
   ).find((c) => checks[c] === "pending");
   const subtitle =
     status === "idle"
-      ? "We'll detect liveness with your camera. Nothing leaves your device until you submit."
+      ? t("liveness.subtitleIdle")
       : status === "done"
-        ? "Hold still while we save your selfie…"
+        ? t("liveness.subtitleSaving")
         : nextPending
-          ? INSTRUCTIONS[nextPending]
-          : "Almost there…";
+          ? instructions()[nextPending]
+          : t("liveness.almostDone");
 
   return (
     <div className="flex flex-col h-full">
       <div className="mb-4">
-        <h2 className="text-xl font-semibold text-gray-900">Face scan</h2>
+        <h2 className="text-xl font-semibold text-gray-900">
+          {t("liveness.title")}
+        </h2>
         <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
       </div>
 
@@ -279,7 +281,7 @@ export const LivenessStep = (props: LivenessStepProps) => {
           {status === "idle" && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-900/40">
               <p className="text-white/80 text-sm">
-                Camera ready — press start below
+                {t("liveness.cameraReady")}
               </p>
             </div>
           )}
@@ -289,7 +291,9 @@ export const LivenessStep = (props: LivenessStepProps) => {
                 <div className="mx-auto w-12 h-12 rounded-full bg-primary-200 flex items-center justify-center text-primary-800 text-2xl">
                   ✓
                 </div>
-                <p className="text-white font-medium mt-2">Liveness verified</p>
+                <p className="text-white font-medium mt-2">
+                  {t("liveness.verified")}
+                </p>
               </div>
             </div>
           )}
@@ -316,7 +320,7 @@ export const LivenessStep = (props: LivenessStepProps) => {
                       : "bg-gray-300"
                 }`}
               />
-              <span className="truncate">{CHECK_LABELS[check]}</span>
+              <span className="truncate">{checkLabels()[check]}</span>
             </div>
           ))}
         </div>
@@ -330,7 +334,7 @@ export const LivenessStep = (props: LivenessStepProps) => {
           disabled={!landmarker}
           className="mt-4 w-full py-3 px-4 bg-primary-200 hover:bg-primary-300 disabled:opacity-50 disabled:cursor-not-allowed text-primary-800 font-semibold rounded-xl transition-colors text-sm"
         >
-          {landmarker ? "Start camera" : "Loading model…"}
+          {landmarker ? t("liveness.start") : t("liveness.loadingModel")}
         </button>
       )}
     </div>

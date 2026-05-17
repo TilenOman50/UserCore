@@ -1,3 +1,5 @@
+import { t } from "./i18n";
+
 // Per-substep "is this still valid under the current workflow config?"
 // checks. The widget boot pass and desktop polling both run these to decide
 // which substeps to mark complete on resume, so a policy change (TOC text
@@ -33,19 +35,12 @@ type TermsConfig = {
 };
 
 // Default consent text used when the admin hasn't supplied a custom one.
-// IMPORTANT: must stay in lockstep with TermsStep's rendered default — the
-// hash is computed from this exact string. Edit both together.
-export const DEFAULT_TERMS_TEXT = `UserCore identity verification — consent
-
-By proceeding, you authorise UserCore and the operator of this workflow to collect, process and store the personal information you provide for the purpose of verifying your identity. This may include identity documents, a selfie video, contact details and proof of residence.
-
-Your data is retained for as long as required to meet applicable regulatory obligations and is processed in accordance with the operator's privacy policy. You may withdraw consent at any time by contacting the operator, in which case the verification cannot be completed.
-
-You confirm that the information and documents you submit belong to you and are accurate. Submitting forged or stolen documents is a criminal offence in most jurisdictions.`;
-
+// Sourced from the i18n bundle so the customer sees it in their language
+// AND we hash the locale-specific text — switching language between visits
+// re-prompts, which is the correct legal behaviour.
 export const getActiveTermsText = (config?: TermsConfig | null): string => {
   const custom = config?.termsText?.trim();
-  return custom && custom.length > 0 ? custom : DEFAULT_TERMS_TEXT;
+  return custom && custom.length > 0 ? custom : t("terms.defaultText");
 };
 
 // djb2 — deterministic across runs, no async, no extra dependency. Plenty for

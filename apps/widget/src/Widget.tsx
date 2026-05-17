@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { LanguagePicker } from "./components/LanguagePicker";
+import { t, useLocale } from "./lib/i18n";
 import { isSubStepComplete } from "./lib/policy";
 import { ContactStep } from "./steps/ContactStep";
 import { DocumentStep } from "./steps/DocumentStep";
@@ -14,6 +16,30 @@ import { TermsStep } from "./steps/TermsStep";
 
 const requestClose = () => {
   window.parent?.postMessage({ type: "usercore.widget.close" }, "*");
+};
+
+// Tiny colour helpers. When the admin sets only one brand colour we derive
+// the other (lighten or darken) so no UserCore green leaks into the widget.
+const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
+const hexToRgb = (hex: string): [number, number, number] => [
+  parseInt(hex.slice(1, 3), 16),
+  parseInt(hex.slice(3, 5), 16),
+  parseInt(hex.slice(5, 7), 16),
+];
+const toHex = (n: number) => clamp(n).toString(16).padStart(2, "0");
+const rgbToHex = (r: number, g: number, b: number) =>
+  `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+const lightenHex = (hex: string, amount: number) => {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex(
+    r + (255 - r) * amount,
+    g + (255 - g) * amount,
+    b + (255 - b) * amount,
+  );
+};
+const darkenHex = (hex: string, amount: number) => {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex(r * (1 - amount), g * (1 - amount), b * (1 - amount));
 };
 
 type WidgetProps = {
@@ -66,9 +92,18 @@ type WorkflowStep = {
   provider: string | null;
 };
 
+type WorkflowBranding = {
+  brandName?: string | null;
+  logoS3Key?: string | null;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  hidePoweredBy?: boolean;
+};
+
 type WorkflowDetail = {
   id: string;
   steps: WorkflowStep[];
+  branding?: WorkflowBranding;
 };
 
 type SubStep = {
@@ -104,10 +139,19 @@ export const Widget = (props: WidgetProps) => {
     onComplete,
   } = props;
 
+  // Subscribe at the very top so a locale switch re-renders the whole tree,
+  // not just the Shell. (Children rendered by Shell are passed as the same
+  // React element reference; React bails out of re-rendering them unless an
+  // ancestor that actually creates them re-renders.)
+  useLocale();
+
   const [bootError, setBootError] = useState<string | null>(null);
   const [booted, setBooted] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [workflow, setWorkflow] = useState<WorkflowDetail | null>(null);
+  // Signed URL for the workflow's branding logo, resolved separately because
+  // the workflow JSON only carries the MinIO key (logoS3Key).
+  const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(null);
   const [identityProvider, setIdentityProvider] = useState<string | null>(null);
   const [enabledSubSteps, setEnabledSubSteps] = useState<Set<SubStepType>>(
     new Set(),
@@ -142,6 +186,27 @@ export const Widget = (props: WidgetProps) => {
         );
         if (cancelled) return;
         setWorkflow(wf);
+
+        // Use the API-proxied logo endpoint rather than a presigned MinIO
+        // URL — the phone-side widget (QR handoff) can't reach the dev
+        // MinIO directly, but it can always reach the workflows API.
+        // We fetch the bytes (rather than passing the URL straight to
+        // <img>) because the global fetch is monkey-patched in main.tsx to
+        // attach `ngrok-skip-browser-warning`. A raw <img src> bypasses
+        // that patch and gets back ngrok's HTML warning instead of an
+        // image. Blob URL stops being valid after unmount, so revoke it.
+        if (wf.branding?.logoS3Key) {
+          fetch(
+            `${workflowsApiUrl}/workflows/workflows/${encodeURIComponent(wf.id)}/branding/logo`,
+          )
+            .then(async (r) => {
+              if (!r.ok || cancelled) return;
+              const blob = await r.blob();
+              if (cancelled) return;
+              setBrandLogoUrl(URL.createObjectURL(blob));
+            })
+            .catch(() => undefined);
+        }
 
         const ivStep = wf.steps.find((s) => s.type === "identity-verification");
         setIdentityProvider(ivStep?.provider ?? null);
@@ -197,6 +262,13 @@ export const Widget = (props: WidgetProps) => {
       cancelled = true;
     };
   }, [workflowsApiUrl, sessionId]);
+
+  // Free the blob URL created for the brand logo when it changes or the
+  // widget unmounts, so we don't leak memory across re-mounts.
+  useEffect(() => {
+    if (!brandLogoUrl?.startsWith("blob:")) return;
+    return () => URL.revokeObjectURL(brandLogoUrl);
+  }, [brandLogoUrl]);
 
   // Phone-side: once the widget loads via QR, mark the session so the
   // desktop widget knows control has moved. Best-effort, fail silent.
@@ -281,6 +353,35 @@ export const Widget = (props: WidgetProps) => {
     [enabledSubSteps],
   );
 
+  // Compose what Shell needs. Model:
+  //   primary   = the dominant fill colour (CTAs + every primary-* bg, with
+  //               CSS color-mix() producing lighter tints for the 50/100
+  //               shades — so primary is consistently visible everywhere).
+  //   secondary = the outline / accent colour — borders, focus rings.
+  // When admin sets only one we derive the other so the palette stays
+  // coherent and no UserCore green leaks through.
+  const shellBranding = useMemo(() => {
+    const primary = workflow?.branding?.primaryColor ?? null;
+    const secondary = workflow?.branding?.secondaryColor ?? null;
+    const resolvedPrimary =
+      primary ?? (secondary ? lightenHex(secondary, 0.5) : null);
+    const resolvedSecondary =
+      secondary ?? (primary ? darkenHex(primary, 0.2) : null);
+    return {
+      brandName: workflow?.branding?.brandName,
+      logoUrl: brandLogoUrl,
+      primaryColor: resolvedPrimary,
+      secondaryColor: resolvedSecondary,
+      hidePoweredBy: workflow?.branding?.hidePoweredBy,
+    };
+  }, [
+    workflow?.branding?.brandName,
+    workflow?.branding?.primaryColor,
+    workflow?.branding?.secondaryColor,
+    workflow?.branding?.hidePoweredBy,
+    brandLogoUrl,
+  ]);
+
   const nextPendingType = useMemo(
     () => orderedSteps.find((t) => !completedSubSteps.has(t)) ?? null,
     [orderedSteps, completedSubSteps],
@@ -331,7 +432,7 @@ export const Widget = (props: WidgetProps) => {
 
   if (bootError) {
     return (
-      <Shell>
+      <Shell branding={shellBranding}>
         <p className="text-sm text-red-600">{bootError}</p>
       </Shell>
     );
@@ -339,15 +440,15 @@ export const Widget = (props: WidgetProps) => {
 
   if (!booted || !session || !workflow) {
     return (
-      <Shell>
-        <p className="text-sm text-gray-500">Loading verification…</p>
+      <Shell branding={shellBranding}>
+        <p className="text-sm text-gray-500">{t("shell.loading")}</p>
       </Shell>
     );
   }
 
   if (identityProvider === "idenfy") {
     return (
-      <Shell>
+      <Shell branding={shellBranding}>
         <IdenfyHandoffStep
           providersApiUrl={providersApiUrl}
           workflowSessionId={session.id}
@@ -359,7 +460,7 @@ export const Widget = (props: WidgetProps) => {
 
   if (phase === "done") {
     return (
-      <Shell>
+      <Shell branding={shellBranding}>
         <SuccessStep />
       </Shell>
     );
@@ -367,18 +468,15 @@ export const Widget = (props: WidgetProps) => {
 
   if (orderedSteps.length === 0) {
     return (
-      <Shell>
-        <p className="text-sm text-gray-500">
-          No sub-steps are enabled for this workflow yet — ask your admin to
-          turn at least one on.
-        </p>
+      <Shell branding={shellBranding}>
+        <p className="text-sm text-gray-500">{t("shell.noSubsteps")}</p>
       </Shell>
     );
   }
 
   if (phase === "handed-off") {
     return (
-      <Shell>
+      <Shell branding={shellBranding}>
         <HandedOffScreen
           steps={orderedSteps.map((t) => ({
             type: t,
@@ -391,7 +489,7 @@ export const Widget = (props: WidgetProps) => {
 
   if (phase === "overview") {
     return (
-      <Shell>
+      <Shell branding={shellBranding}>
         <OverviewScreen
           steps={orderedSteps.map((t) => ({
             type: t,
@@ -409,6 +507,7 @@ export const Widget = (props: WidgetProps) => {
   const stepIndex = stepType ? orderedSteps.indexOf(stepType) : -1;
   return (
     <Shell
+      branding={shellBranding}
       progress={
         stepIndex >= 0
           ? { step: stepIndex + 1, total: orderedSteps.length }
@@ -487,51 +586,103 @@ export const Widget = (props: WidgetProps) => {
   );
 };
 
+type ShellBranding = {
+  brandName?: string | null;
+  logoUrl?: string | null;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  hidePoweredBy?: boolean;
+};
+
 const Shell = ({
   children,
   progress,
+  branding,
 }: {
   children: React.ReactNode;
   progress?: { step: number; total: number };
-}) => (
-  <div className="bg-white rounded-2xl shadow-lg border border-gray-200 w-full max-w-lg min-h-[640px] flex flex-col overflow-hidden">
-    <div className="px-8 py-4 border-b border-gray-100 flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <div className="w-6 h-6 rounded-md bg-primary-200 flex items-center justify-center">
-          <span className="text-xs font-bold text-primary-700">UC</span>
-        </div>
-        <span className="text-sm font-semibold text-gray-700">
-          UserCore Verification
-        </span>
-      </div>
-      <div className="flex items-center gap-3">
-        {progress && (
-          <span className="text-xs text-gray-400">
-            Step {progress.step} of {progress.total}
+  branding?: ShellBranding;
+}) => {
+  // Subscribe to locale changes so every t() call in the tree re-renders when
+  // the customer flips the language picker.
+  useLocale();
+  const brandName = branding?.brandName?.trim() || t("shell.defaultBrand");
+  const logoUrl = branding?.logoUrl ?? null;
+  // Inline override only when a custom colour is set — Tailwind defaults
+  // (primary-200 / primary-100) stay everywhere else.
+  const primary = branding?.primaryColor ?? null;
+  const secondary = branding?.secondaryColor ?? null;
+  const styleVars: React.CSSProperties = {};
+  if (primary)
+    (styleVars as Record<string, string>)["--brand-primary"] = primary;
+  if (secondary)
+    (styleVars as Record<string, string>)["--brand-secondary"] = secondary;
+  return (
+    <div
+      className="bg-white rounded-2xl shadow-lg border border-gray-200 w-full max-w-lg min-h-[640px] flex flex-col overflow-hidden"
+      style={primary || secondary ? styleVars : undefined}
+    >
+      <div className="px-8 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={brandName}
+              className="w-6 h-6 rounded-md object-contain bg-white"
+            />
+          ) : (
+            <div
+              className="w-6 h-6 rounded-md bg-primary-200 flex items-center justify-center"
+              style={primary ? { backgroundColor: primary } : undefined}
+            >
+              <span className="text-xs font-bold text-primary-700">UC</span>
+            </div>
+          )}
+          <span className="text-sm font-semibold text-gray-700 truncate">
+            {brandName}
           </span>
-        )}
-        <button
-          type="button"
-          onClick={requestClose}
-          aria-label="Close"
-          className="text-gray-400 hover:text-gray-700 p-1 rounded-md hover:bg-gray-50"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {progress && (
+            <span className="text-xs text-gray-400">
+              {t("shell.stepOfTotal", {
+                step: String(progress.step),
+                total: String(progress.total),
+              })}
+            </span>
+          )}
+          <LanguagePicker />
+          <button
+            type="button"
+            onClick={requestClose}
+            aria-label={t("shell.close")}
+            className="text-gray-400 hover:text-gray-700 p-1 rounded-md hover:bg-gray-50"
           >
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
       </div>
+      <div className="px-8 py-6 flex-1">{children}</div>
+      {!branding?.hidePoweredBy && (
+        <div className="px-8 py-2 border-t border-gray-100 text-center">
+          <span className="text-[10px] text-gray-400">
+            {t("shell.poweredBy")}{" "}
+            <span className="font-semibold">UserCore</span>
+          </span>
+        </div>
+      )}
     </div>
-    <div className="px-8 py-6 flex-1">{children}</div>
-  </div>
-);
+  );
+};

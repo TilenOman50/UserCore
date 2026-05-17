@@ -1,9 +1,14 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 
+import { resolveInitialLocale, setLocale } from "./lib/i18n";
 import { Widget } from "./Widget";
 
 import "./index.css";
+
+// Resolve the widget's locale once on boot. ?lang= URL param wins, otherwise
+// navigator.language → fallback to English.
+setLocale(resolveInitialLocale());
 
 // When the widget is hosted behind an ngrok free tunnel, the first browser
 // request triggers an HTML warning page. AJAX requests bypass it if we tag

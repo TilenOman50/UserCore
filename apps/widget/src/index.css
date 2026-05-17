@@ -14,15 +14,106 @@
   display: none;
 }
 
+/* Brand colour overrides.
+   Design language: keep the widget readable with ANY brand colour,
+   including saturated reds / oranges / blues that would look garish if
+   smeared across every light surface.
+
+   - Primary fills the things that genuinely need to be "branded":
+       • the main CTA button (bg-primary-200)
+       • toggle ON / status checkmark / current-step icon (bg-primary-500
+         and the primary tile on the current overview step, which is also
+         bg-primary-200)
+   - Light tints (bg-primary-100, bg-primary-50) → NEUTRAL gray. No
+     pinkish/bluish washes — those are what make custom brand colours look
+     "ugly" on info panels, icon tiles, etc.
+   - Secondary is the OUTLINE layer — borders + focus rings.
+   - All primary text collapses to near-black so it reads on any tint. */
+
+/* Solid primary fills */
+[style*="--brand-primary"] .bg-primary-200,
+[style*="--brand-primary"] .bg-primary-500 {
+  background-color: var(--brand-primary);
+}
+[style*="--brand-primary"] .hover\:bg-primary-300:hover {
+  background-color: var(--brand-primary);
+  filter: brightness(0.95);
+}
+
+/* Neutral grays for light tints */
+[style*="--brand-primary"] .bg-primary-100 {
+  background-color: #f3f4f6; /* gray-100 */
+}
+[style*="--brand-primary"] .bg-primary-50 {
+  background-color: #f9fafb; /* gray-50 */
+}
+
+/* Borders + focus rings — secondary (outline / accent layer) */
+[style*="--brand-secondary"] .border-primary-100,
+[style*="--brand-secondary"] .border-primary-200,
+[style*="--brand-secondary"] .border-primary-300,
+[style*="--brand-secondary"] .border-primary-400,
+[style*="--brand-secondary"] .hover\:border-primary-300:hover,
+[style*="--brand-secondary"] .focus\:border-primary-400:focus,
+[style*="--brand-secondary"] .focus-within\:border-primary-400:focus-within {
+  border-color: var(--brand-secondary);
+}
+[style*="--brand-secondary"] .ring-primary-200,
+[style*="--brand-secondary"] .focus\:ring-primary-300:focus,
+[style*="--brand-secondary"] .focus-within\:ring-primary-200:focus-within {
+  --tw-ring-color: var(--brand-secondary);
+}
+
+/* Text + icons (text-primary-*) → brand primary by default. Icons use
+   currentColor so they inherit, giving a branded splash on neutral tiles. */
+[style*="--brand-primary"] .text-primary-600,
+[style*="--brand-primary"] .text-primary-700,
+[style*="--brand-primary"] .text-primary-800,
+[style*="--brand-primary"] .text-primary-900 {
+  color: var(--brand-primary);
+}
+
+/* Flip to white when the SAME element is also bg-primary-200/500 — the
+   text/icon is otherwise the same colour as the background (invisible).
+   Specificity 0,3,0 beats the plain text-primary-* override. */
+[style*="--brand-primary"] .bg-primary-200.text-primary-600,
+[style*="--brand-primary"] .bg-primary-200.text-primary-700,
+[style*="--brand-primary"] .bg-primary-200.text-primary-800,
+[style*="--brand-primary"] .bg-primary-200.text-primary-900,
+[style*="--brand-primary"] .bg-primary-500.text-primary-600,
+[style*="--brand-primary"] .bg-primary-500.text-primary-700,
+[style*="--brand-primary"] .bg-primary-500.text-primary-800,
+[style*="--brand-primary"] .bg-primary-500.text-primary-900 {
+  color: #ffffff;
+}
+
+/* For elements with a primary fill but no explicit text-primary-* class,
+   set currentColor → white so nested SVGs render white as well. */
+[style*="--brand-primary"] .bg-primary-200,
+[style*="--brand-primary"] .bg-primary-500 {
+  color: #ffffff;
+}
+
 :root {
   --color-primary: #c0e1d2;
 }
 
 /* When loaded inside a dashboard iframe, the host already provides the
    backdrop. Use transparent body so only the widget card is visible. When
-   loaded standalone, the host page can set its own background. */
+   loaded standalone, the host page can set its own background.
+
+   Also strip the iframe document's own scrollbar — the widget body can
+   still scroll if its content overflows the iframe, but the visible gutter
+   on the right of the iframe is gone. */
 html,
 body,
 #root {
   background: transparent;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+#root::-webkit-scrollbar {
+  display: none;
 }

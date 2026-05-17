@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
+import { getCurrentLocale, t } from "../lib/i18n";
+
 type EmailStepProps = {
   workflowsApiUrl: string;
   sessionId: string;
@@ -25,16 +27,16 @@ export const EmailStep = (props: EmailStepProps) => {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email, locale: getCurrentLocale() }),
         },
       );
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? "Could not send code");
+        throw new Error(body.error ?? t("email.sendError"));
       }
       setStage("enter-code");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not send code");
+      setError(err instanceof Error ? err.message : t("email.sendError"));
     } finally {
       setLoading(false);
     }
@@ -54,19 +56,17 @@ export const EmailStep = (props: EmailStepProps) => {
       );
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? "Verification failed");
+        throw new Error(body.error ?? t("email.verifyError"));
       }
       onComplete();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Verification failed");
+      setError(err instanceof Error ? err.message : t("email.verifyError"));
     } finally {
       setLoading(false);
     }
   };
 
-  // Auto-verify the moment the user finishes typing the 6th digit — no need
-  // to make them tap Continue. We gate on `loading` so paste-then-edit edge
-  // cases don't fire multiple requests.
+  // Auto-verify when the user finishes typing the 6th digit.
   const lastAttempted = useRef<string | null>(null);
   useEffect(() => {
     if (
@@ -92,11 +92,10 @@ export const EmailStep = (props: EmailStepProps) => {
       >
         <div className="mb-6">
           <h2 className="text-xl font-semibold text-gray-900">
-            Enter the code
+            {t("email.codeTitle")}
           </h2>
           <p className="text-sm text-gray-500 mt-1">
-            We sent a 6-digit code to <strong>{email}</strong>. It expires in 10
-            minutes.
+            {t("email.codeSubtitle", { email })}
           </p>
         </div>
 
@@ -105,7 +104,7 @@ export const EmailStep = (props: EmailStepProps) => {
             htmlFor="otp-input"
             className="block text-xs font-medium text-gray-700 mb-1.5"
           >
-            Verification code
+            {t("email.codeLabel")}
           </label>
           <input
             id="otp-input"
@@ -130,7 +129,7 @@ export const EmailStep = (props: EmailStepProps) => {
             }}
             className="mt-3 text-xs text-gray-500 hover:text-gray-700 self-start"
           >
-            Use a different email
+            {t("email.differentEmail")}
           </button>
         </div>
 
@@ -141,7 +140,7 @@ export const EmailStep = (props: EmailStepProps) => {
           disabled={loading || code.length < 4}
           className="mt-4 w-full py-3 px-4 bg-primary-200 hover:bg-primary-300 disabled:opacity-50 disabled:cursor-not-allowed text-primary-800 font-semibold rounded-xl transition-colors text-sm"
         >
-          {loading ? "Verifying…" : "Verify and continue"}
+          {loading ? t("email.verifying") : t("email.verify")}
         </button>
       </form>
     );
@@ -157,11 +156,9 @@ export const EmailStep = (props: EmailStepProps) => {
     >
       <div className="mb-6">
         <h2 className="text-xl font-semibold text-gray-900">
-          Email verification
+          {t("email.title")}
         </h2>
-        <p className="text-sm text-gray-500 mt-1">
-          We'll send a 6-digit code to confirm your address.
-        </p>
+        <p className="text-sm text-gray-500 mt-1">{t("email.subtitle")}</p>
       </div>
 
       <div className="flex-1 flex flex-col justify-center">
@@ -187,7 +184,7 @@ export const EmailStep = (props: EmailStepProps) => {
           htmlFor="email-input"
           className="block text-xs font-medium text-gray-700 mb-1.5"
         >
-          Email address
+          {t("email.label")}
         </label>
         <input
           id="email-input"
@@ -196,7 +193,7 @@ export const EmailStep = (props: EmailStepProps) => {
           autoFocus
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
+          placeholder={t("email.placeholder")}
           className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
         />
       </div>
@@ -208,7 +205,7 @@ export const EmailStep = (props: EmailStepProps) => {
         disabled={loading || email.trim().length === 0}
         className="mt-4 w-full py-3 px-4 bg-primary-200 hover:bg-primary-300 disabled:opacity-50 disabled:cursor-not-allowed text-primary-800 font-semibold rounded-xl transition-colors text-sm"
       >
-        {loading ? "Sending…" : "Send code"}
+        {loading ? t("email.sending") : t("email.send")}
       </button>
     </form>
   );

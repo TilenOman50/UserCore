@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { COUNTRIES } from "../lib/countries";
 import { DIAL_CODES } from "../lib/dialCodes";
+import { t } from "../lib/i18n";
 
 type Props = {
   // The full E.164-style number we hand back to callers, e.g. "+386 51 123 456".
@@ -104,7 +105,7 @@ export const PhoneInput = ({ value, onChange, required }: Props) => {
               <span className="font-mono text-gray-700">{dialCode}</span>
             </>
           ) : (
-            <span className="text-gray-400">Code</span>
+            <span className="text-gray-400">{t("common.code")}</span>
           )}
           <svg
             width="12"
@@ -139,14 +140,14 @@ export const PhoneInput = ({ value, onChange, required }: Props) => {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search country or +code…"
+              placeholder={t("common.phoneSearch")}
               className="w-full px-2 py-1.5 text-sm border-0 focus:outline-none placeholder:text-gray-400"
             />
           </div>
           <div className="overflow-y-auto no-scrollbar flex-1">
             {filtered.length === 0 ? (
               <div className="px-3 py-4 text-sm text-gray-500 text-center">
-                No matches.
+                {t("common.noMatches")}
               </div>
             ) : (
               filtered.map((c) => (

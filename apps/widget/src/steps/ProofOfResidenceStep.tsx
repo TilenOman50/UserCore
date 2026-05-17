@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 
 import { CountryPicker } from "../components/CountryPicker";
 import { SelectField } from "../components/SelectField";
+import { t } from "../lib/i18n";
 
 type ProofOfResidenceStepProps = {
   workflowsApiUrl: string;
@@ -16,13 +17,13 @@ type ProofOfResidenceStepProps = {
   config?: { documentTypes?: string[] };
 };
 
-const POR_DOC_LABELS: Record<string, string> = {
-  GAS_BILL: "Gas bill",
-  INTERNET_BILL: "Internet bill",
-  ELECTRICITY_BILL: "Electricity bill",
-  RENT_AGREEMENT: "Rent agreement",
-  BANK_STATEMENT: "Bank statement",
-};
+const porDocLabels = (): Record<string, string> => ({
+  GAS_BILL: t("por.gasBill"),
+  INTERNET_BILL: t("por.internetBill"),
+  ELECTRICITY_BILL: t("por.electricityBill"),
+  RENT_AGREEMENT: t("por.rentAgreement"),
+  BANK_STATEMENT: t("por.bankStatement"),
+});
 
 const CameraIcon = () => (
   <svg
@@ -104,7 +105,7 @@ export const ProofOfResidenceStep = (props: ProofOfResidenceStepProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ready) {
-      setError("Please upload the document and fill in your address.");
+      setError(t("por.errorMissing"));
       return;
     }
     setLoading(true);
@@ -178,7 +179,7 @@ export const ProofOfResidenceStep = (props: ProofOfResidenceStepProps) => {
       setError(
         err instanceof Error && err.message
           ? err.message
-          : "Upload failed. Please try again.",
+          : t("por.errorUpload"),
       );
     } finally {
       setLoading(false);
@@ -189,24 +190,21 @@ export const ProofOfResidenceStep = (props: ProofOfResidenceStepProps) => {
     <form onSubmit={handleSubmit} className="flex flex-col h-full">
       <div className="mb-4">
         <h2 className="text-xl font-semibold text-gray-900">
-          Proof of residence
+          {t("por.title")}
         </h2>
-        <p className="text-sm text-gray-500 mt-1">
-          A document dated within the last 3 months that shows your name and
-          home address.
-        </p>
+        <p className="text-sm text-gray-500 mt-1">{t("por.subtitle")}</p>
       </div>
 
       <div className="mb-4">
         <label className="block text-xs font-medium text-gray-700 mb-1.5">
-          Document type
+          {t("por.type")}
         </label>
         <SelectField
           value={documentType}
           onChange={setDocumentType}
-          options={allowedTypes.map((t) => ({
-            value: t,
-            label: POR_DOC_LABELS[t] ?? t,
+          options={allowedTypes.map((type) => ({
+            value: type,
+            label: porDocLabels()[type] ?? type,
           }))}
         />
       </div>
@@ -232,10 +230,10 @@ export const ProofOfResidenceStep = (props: ProofOfResidenceStepProps) => {
           ) : (
             <div className="text-gray-400">
               <p className="text-xs font-medium text-gray-600">
-                Click to upload
+                {t("por.clickToUpload")}
               </p>
               <p className="text-[10px] mt-0.5 text-gray-400">
-                JPG, PNG or PDF
+                {t("por.uploadHint")}
               </p>
             </div>
           )}
@@ -248,14 +246,14 @@ export const ProofOfResidenceStep = (props: ProofOfResidenceStepProps) => {
             className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700"
           >
             <CameraIcon />
-            Take photo with camera
+            {t("por.takePhoto")}
           </button>
         )}
 
         <div className="border-t border-gray-100 pt-3 space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
-              Street address
+              {t("por.street")}
             </label>
             <input
               type="text"
@@ -263,14 +261,14 @@ export const ProofOfResidenceStep = (props: ProofOfResidenceStepProps) => {
               value={address.street}
               onChange={onAddressChange}
               required
-              placeholder="123 Main Street"
+              placeholder={t("por.streetPlaceholder")}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 placeholder:text-gray-300"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
-                City
+                {t("por.city")}
               </label>
               <input
                 type="text"
@@ -278,13 +276,13 @@ export const ProofOfResidenceStep = (props: ProofOfResidenceStepProps) => {
                 value={address.city}
                 onChange={onAddressChange}
                 required
-                placeholder="Ljubljana"
+                placeholder={t("por.cityPlaceholder")}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 placeholder:text-gray-300"
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
-                Postal code
+                {t("por.postalCode")}
               </label>
               <input
                 type="text"
@@ -292,14 +290,14 @@ export const ProofOfResidenceStep = (props: ProofOfResidenceStepProps) => {
                 value={address.postalCode}
                 onChange={onAddressChange}
                 required
-                placeholder="1000"
+                placeholder={t("por.postalCodePlaceholder")}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400 placeholder:text-gray-300"
               />
             </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
-              Country
+              {t("por.country")}
             </label>
             <CountryPicker
               value={address.country}
@@ -336,7 +334,7 @@ export const ProofOfResidenceStep = (props: ProofOfResidenceStepProps) => {
         disabled={loading || !ready}
         className="mt-4 w-full py-3 px-4 bg-primary-200 hover:bg-primary-300 disabled:opacity-50 disabled:cursor-not-allowed text-primary-800 font-semibold rounded-xl transition-colors text-sm"
       >
-        {loading ? "Uploading…" : "Continue"}
+        {loading ? t("por.uploading") : t("por.continue")}
       </button>
     </form>
   );

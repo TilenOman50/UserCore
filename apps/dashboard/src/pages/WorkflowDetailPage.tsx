@@ -32,6 +32,7 @@ import type {
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { LinkScenarioModal } from "../components/scenarios/LinkScenarioModal";
 import { SaveIndicator } from "../components/ui/SaveIndicator";
+import { BrandingSection } from "../components/workflows/BrandingSection";
 import {
   ContactInfoConfigEditor,
   IdScanConfigEditor,
@@ -408,6 +409,12 @@ export const WorkflowDetailPage = () => {
           </div>
         </div>
       )}
+
+      <BrandingSection
+        workflowId={workflow.id}
+        branding={workflow.branding ?? {}}
+        canEdit={canEdit}
+      />
 
       <section>
         <div className="flex items-center justify-between mb-3">

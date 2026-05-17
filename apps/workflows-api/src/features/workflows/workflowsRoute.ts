@@ -1,6 +1,7 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 
 import {
+  WorkflowBrandingSchema,
   WorkflowStatusEnum,
   WorkflowStepTypeEnum,
   WorkflowTypeEnum,
@@ -38,6 +39,7 @@ const WorkflowSchema = z.object({
   reasons: z.array(WorkflowReasonSchema),
   verificationMode: WorkflowVerificationModeEnum,
   isDefault: z.boolean(),
+  branding: WorkflowBrandingSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -62,6 +64,7 @@ const UpdateWorkflowSchema = z.object({
   status: WorkflowStatusEnum.optional(),
   verificationMode: WorkflowVerificationModeEnum.optional(),
   isDefault: z.boolean().optional(),
+  branding: WorkflowBrandingSchema.optional(),
 });
 
 const ErrorSchema = z.object({ error: z.string() });
@@ -78,6 +81,7 @@ const serializeWorkflow = (w: Workflow) => ({
   reasons: w.reasons ?? [],
   verificationMode: w.verificationMode,
   isDefault: w.isDefault,
+  branding: w.branding ?? {},
   createdAt: w.createdAt.toISOString(),
   updatedAt: w.updatedAt.toISOString(),
 });
@@ -97,7 +101,47 @@ export const createWorkflowsRouter = (props: {
 }) => {
   const { workflowsService } = props;
 
-  return new OpenAPIHono<{ Variables: ContextVariables }>()
+  const app = new OpenAPIHono<{ Variables: ContextVariables }>();
+
+  // Branding-logo upload + URL retrieval. Plain Hono routes because the
+  // openapi() helper doesn't model multipart well; documentation cost is
+  // the only loss here.
+  app.post("/workflows/:id/branding/logo", async (c) => {
+    const { id } = c.req.param();
+    const formData = await c.req.formData();
+    const file = formData.get("file") as File | null;
+    if (!file) return c.json({ error: "file is required" }, 400);
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const updated = await workflowsService.uploadBrandingLogo({
+      workflowId: id,
+      fileBuffer: buffer,
+      mimeType: file.type,
+    });
+    if (!updated) return c.json({ error: "Workflow not found" }, 404);
+    return c.json(serializeWorkflow(updated), 200);
+  });
+
+  app.get("/workflows/:id/branding/logo/url", async (c) => {
+    const { id } = c.req.param();
+    const result = await workflowsService.getBrandingLogoUrl(id);
+    if (!result) return c.json({ error: "No branding logo set" }, 404);
+    return c.json(result, 200);
+  });
+
+  // Logo bytes proxied through the API. The widget on a phone (QR handoff)
+  // can't reach the dev MinIO at localhost:9000, so it consumes this instead
+  // of the presigned URL above.
+  app.get("/workflows/:id/branding/logo", async (c) => {
+    const { id } = c.req.param();
+    const result = await workflowsService.getBrandingLogoBytes(id);
+    if (!result) return c.json({ error: "No branding logo set" }, 404);
+    return c.body(Buffer.from(result.body), 200, {
+      "Content-Type": result.contentType,
+      "Cache-Control": "public, max-age=300",
+    });
+  });
+
+  return app
     .openapi(
       createRoute({
         method: "post",

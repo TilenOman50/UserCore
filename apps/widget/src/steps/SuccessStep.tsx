@@ -1,3 +1,5 @@
+import { t } from "../lib/i18n";
+
 export const SuccessStep = () => {
   return (
     <div className="flex flex-col h-full items-center text-center">
@@ -18,22 +20,21 @@ export const SuccessStep = () => {
           </svg>
         </div>
         <h2 className="text-xl font-semibold text-gray-900 mt-5">
-          Verification submitted
+          {t("success.title")}
         </h2>
         <p className="text-sm text-gray-500 mt-2 max-w-xs">
-          Your information is on its way to our review team. You'll be notified
-          once a decision is made.
+          {t("success.subtitle")}
         </p>
       </div>
 
       <div className="w-full bg-primary-50 border border-primary-100 rounded-xl p-4 text-left">
         <p className="text-xs font-semibold text-primary-800 mb-2 uppercase tracking-wide">
-          What happens next
+          {t("success.nextHeading")}
         </p>
         <ul className="text-xs text-primary-700/90 space-y-1">
-          <li>· Our team reviews your submission</li>
-          <li>· You receive an email with the decision</li>
-          <li>· Typically reviewed within 1–2 business days</li>
+          <li>· {t("success.next1")}</li>
+          <li>· {t("success.next2")}</li>
+          <li>· {t("success.next3")}</li>
         </ul>
       </div>
     </div>

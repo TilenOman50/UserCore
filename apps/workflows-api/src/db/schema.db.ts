@@ -16,6 +16,7 @@ import type {
   AttributeType,
   ExternalSessionSource,
   IdentityVerificationSubStepType,
+  WorkflowBranding,
   WorkflowReason,
   WorkflowSessionStatus,
   WorkflowSessionStepType,
@@ -71,6 +72,10 @@ export const WorkflowTable = pgTable(
       .notNull()
       .default("sandbox"),
     isDefault: boolean("is_default").notNull().default(false),
+    // Widget branding overrides for this workflow. Plan-gated on the
+    // dashboard side; widget reads logoS3Key, brandName, primaryColor, and
+    // hidePoweredBy on boot to skin itself.
+    branding: jsonb("branding").$type<WorkflowBranding>().default({}).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     // Soft delete — when set, the workflow is hidden from list/detail views

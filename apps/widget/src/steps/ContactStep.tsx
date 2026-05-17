@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { PhoneInput } from "../components/PhoneInput";
+import { t } from "../lib/i18n";
 
 type ContactStepProps = {
   workflowsApiUrl: string;
@@ -57,7 +58,7 @@ export const ContactStep = (props: ContactStepProps) => {
       if (!res.ok) throw new Error("Submit failed");
       onComplete();
     } catch {
-      setError("Failed to submit. Please try again.");
+      setError(t("contact.error"));
     } finally {
       setLoading(false);
     }
@@ -71,15 +72,15 @@ export const ContactStep = (props: ContactStepProps) => {
   }> = [
     {
       name: "phone",
-      label: "Phone",
+      label: t("contact.phone"),
       type: "tel",
-      placeholder: "+1 555 123 4567",
+      placeholder: t("contact.phonePlaceholder"),
     },
     {
       name: "email",
-      label: "Email",
+      label: t("contact.email"),
       type: "email",
-      placeholder: "you@example.com",
+      placeholder: t("contact.emailPlaceholder"),
     },
   ];
 
@@ -89,11 +90,9 @@ export const ContactStep = (props: ContactStepProps) => {
     <form onSubmit={handleSubmit} className="flex flex-col h-full">
       <div className="mb-5">
         <h2 className="text-xl font-semibold text-gray-900">
-          Contact information
+          {t("contact.title")}
         </h2>
-        <p className="text-sm text-gray-500 mt-1">
-          We may use these details to reach you about your verification.
-        </p>
+        <p className="text-sm text-gray-500 mt-1">{t("contact.subtitle")}</p>
       </div>
 
       <div className="flex-1 space-y-4 content-start">
@@ -130,7 +129,7 @@ export const ContactStep = (props: ContactStepProps) => {
         disabled={loading}
         className="mt-4 w-full py-3 px-4 bg-primary-200 hover:bg-primary-300 disabled:opacity-50 disabled:cursor-not-allowed text-primary-800 font-semibold rounded-xl transition-colors text-sm"
       >
-        {loading ? "Saving…" : "Continue"}
+        {loading ? t("contact.saving") : t("contact.continue")}
       </button>
     </form>
   );

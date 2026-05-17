@@ -1,7 +1,13 @@
 import type { Logger } from "@usercore/logger";
 
+import type { StorageService } from "../../storage/storageService";
+import type { WorkflowsRepository } from "../workflows/workflowsRepository";
 import type { WorkflowSessionAttributesRepository } from "../workflowSessions/workflowSessionAttributesRepository";
+import type { WorkflowSessionsRepository } from "../workflowSessions/workflowSessionsRepository";
 import type { Mailer } from "./mailer";
+
+const DEFAULT_BRAND_NAME = "UserCore Verification";
+const DEFAULT_PRIMARY_COLOR = "#C0E1D2";
 
 // 6-digit numeric code, padded so the first digit can be a zero.
 const generateOtp = () =>
@@ -25,14 +31,25 @@ export class EmailVerificationError extends Error {
 
 export const createEmailVerificationService = (props: {
   attributesRepository: WorkflowSessionAttributesRepository;
+  sessionsRepository: WorkflowSessionsRepository;
+  workflowsRepository: WorkflowsRepository;
+  storageService: StorageService;
   mailer: Mailer;
   logger: Logger;
 }) => {
-  const { attributesRepository, mailer, logger } = props;
+  const {
+    attributesRepository,
+    sessionsRepository,
+    workflowsRepository,
+    storageService,
+    mailer,
+    logger,
+  } = props;
 
   const sendCode = async (data: {
     workflowSessionId: string;
     email: string;
+    locale: string | null;
   }) => {
     const otp = generateOtp();
     await attributesRepository.batchUpsert({
@@ -55,10 +72,61 @@ export const createEmailVerificationService = (props: {
         },
       ],
     });
-    await mailer.sendVerificationOtp(data.email, otp);
+
+    // Resolve the workflow's brand so the email arrives looking like it came
+    // from the host the customer recognises (NLB, HSBC, …), not "UserCore".
+    // An elderly customer mid-onboarding sees an English UserCore email and
+    // dismisses it as phishing — branded subject + sender + body fixes that.
+    const session = await sessionsRepository.findById(data.workflowSessionId);
+    const workflow = session
+      ? await workflowsRepository.findById(session.workflowId)
+      : null;
+    const branding = workflow?.branding ?? {};
+    const brandName =
+      branding.brandName?.trim() && branding.brandName.trim().length > 0
+        ? branding.brandName.trim()
+        : DEFAULT_BRAND_NAME;
+    const primaryColor = branding.primaryColor ?? DEFAULT_PRIMARY_COLOR;
+    const senderEmail =
+      branding.senderEmail && branding.senderEmail.trim().length > 0
+        ? branding.senderEmail.trim()
+        : null;
+
+    // Fetch logo bytes so we can inline them as a CID attachment — email
+    // clients render those directly from the message, no public URL needed.
+    // Best-effort: if MinIO is down or the key is stale, send without logo.
+    let logo: { body: Buffer; contentType: string } | null = null;
+    if (branding.logoS3Key) {
+      try {
+        const obj = await storageService.getObject(branding.logoS3Key);
+        if (obj) {
+          logo = {
+            body: Buffer.from(obj.body),
+            contentType: obj.contentType,
+          };
+        }
+      } catch (err) {
+        logger.warn({
+          msg: "Failed to fetch brand logo for email; falling back to initials",
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    await mailer.sendVerificationOtp({
+      to: data.email,
+      otp,
+      brandName,
+      primaryColor,
+      logo,
+      senderEmail,
+      locale: data.locale,
+    });
     logger.info({
       msg: "Email OTP sent",
       sessionId: data.workflowSessionId,
+      brand: brandName,
+      locale: data.locale,
     });
   };
 

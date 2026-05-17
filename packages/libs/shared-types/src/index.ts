@@ -551,6 +551,34 @@ export const TermsAcceptanceConfigSchema = z.object({
 });
 export type TermsAcceptanceConfig = z.infer<typeof TermsAcceptanceConfigSchema>;
 
+// Per-workflow widget branding. Plan-gated on the dashboard side:
+//   STARTER:     all fields locked → widget shows default UserCore branding.
+//   GROWTH:      brandName, logoS3Key, primaryColor editable. PoweredBy stays.
+//   ENTERPRISE:  also hidePoweredBy editable (white-label).
+// Hex-colour validator shared between primary and secondary.
+const HexColorSchema = z
+  .string()
+  .regex(/^#[0-9A-Fa-f]{6}$/, "Must be a #RRGGBB hex colour")
+  .nullable()
+  .optional();
+
+export const WorkflowBrandingSchema = z.object({
+  brandName: z.string().nullable().optional(),
+  logoS3Key: z.string().nullable().optional(),
+  // primaryColor   → main CTA buttons in the widget.
+  // secondaryColor → light accent backgrounds (icon tiles, "Up next" pill,
+  //                  success/info panels). Pick a paler hue than primary.
+  primaryColor: HexColorSchema,
+  secondaryColor: HexColorSchema,
+  hidePoweredBy: z.boolean().optional(),
+  // Custom From address for transactional emails (the OTP). Enterprise-only:
+  // an elderly customer mid-onboarding distrusts a noreply@usercore email
+  // arriving during what they think is a bank flow. Empty/null falls back
+  // to env.SMTP_FROM.
+  senderEmail: z.string().email().nullable().optional(),
+});
+export type WorkflowBranding = z.infer<typeof WorkflowBrandingSchema>;
+
 // Providers that workflows-api dispatches to via providers-api. Stubs without
 // API keys; real client code that 401s without env credentials.
 export const PROVIDER_SHORT_NAMES = [

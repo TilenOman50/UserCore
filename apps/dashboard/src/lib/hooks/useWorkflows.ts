@@ -29,6 +29,15 @@ export type WorkflowStep = {
   updatedAt: string;
 };
 
+export type WorkflowBranding = {
+  brandName?: string | null;
+  logoS3Key?: string | null;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  hidePoweredBy?: boolean;
+  senderEmail?: string | null;
+};
+
 export type Workflow = {
   id: string;
   status: "ACTIVE" | "INACTIVE";
@@ -41,6 +50,7 @@ export type Workflow = {
   reasons: Array<{ stepType?: WorkflowStepType; message: string }>;
   verificationMode: "sandbox" | "production";
   isDefault: boolean;
+  branding: WorkflowBranding;
   createdAt: string;
   updatedAt: string;
 };
@@ -170,6 +180,7 @@ export const useUpdateWorkflow = () => {
         status: "ACTIVE" | "INACTIVE";
         verificationMode: "sandbox" | "production";
         isDefault: boolean;
+        branding: WorkflowBranding;
       }>;
     }) =>
       apiFetch<Workflow>(
@@ -182,6 +193,44 @@ export const useUpdateWorkflow = () => {
     },
   });
 };
+
+// Multipart upload bypasses apiFetch's JSON content-type header so the
+// browser can set its own multipart boundary.
+export const useUploadBrandingLogo = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { workflowId: string; file: File }) => {
+      const formData = new FormData();
+      formData.append("file", data.file, data.file.name || "logo.png");
+      const res = await fetch(
+        `${WORKFLOWS_API_URL}/workflows/workflows/${encodeURIComponent(data.workflowId)}/branding/logo`,
+        { method: "POST", body: formData, credentials: "include" },
+      );
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`Logo upload failed (${res.status}) ${body}`);
+      }
+      return (await res.json()) as Workflow;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["workflow", vars.workflowId] });
+      qc.invalidateQueries({
+        queryKey: ["branding-logo-url", vars.workflowId],
+      });
+    },
+  });
+};
+
+export const useBrandingLogoUrl = (workflowId: string | null) =>
+  useQuery({
+    queryKey: ["branding-logo-url", workflowId],
+    queryFn: () =>
+      apiFetch<{ url: string; key: string }>(
+        `${WORKFLOWS_API_URL}/workflows/workflows/${encodeURIComponent(workflowId!)}/branding/logo/url`,
+      ).catch(() => null),
+    enabled: !!workflowId,
+    retry: false,
+  });
 
 export const useDeleteWorkflow = () => {
   const qc = useQueryClient();

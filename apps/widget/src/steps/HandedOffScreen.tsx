@@ -1,18 +1,19 @@
 import type { ReactElement } from "react";
 
+import { t } from "../lib/i18n";
 import type { SubStepType } from "../Widget";
 
 type Props = {
   steps: { type: SubStepType; completed: boolean }[];
 };
 
-const STEP_LABEL: Record<SubStepType, string> = {
-  "terms-acceptance": "Terms & conditions",
-  "email-verification": "Email verification",
-  "id-scan": "Identity document",
-  "face-scan": "Face scan",
-  "proof-of-residence": "Proof of residence",
-  "contact-information": "Contact information",
+const STEP_LABEL_KEYS: Record<SubStepType, string> = {
+  "terms-acceptance": "step.terms",
+  "email-verification": "step.email",
+  "id-scan": "step.idScan",
+  "face-scan": "step.faceScan",
+  "proof-of-residence": "step.por",
+  "contact-information": "step.contact",
 };
 
 const STEP_ICON: Record<SubStepType, ReactElement> = {
@@ -49,17 +50,19 @@ export const HandedOffScreen = ({ steps }: Props) => {
         </div>
         <div className="flex-1">
           <p className="text-sm font-semibold text-primary-900">
-            Session continued on a phone
+            {t("handoff.title")}
           </p>
           <p className="text-xs text-primary-800/80 mt-0.5">
-            The customer is finishing the verification on their mobile device.
-            Steps below update as they progress.
+            {t("handoff.subtitle")}
           </p>
         </div>
       </div>
 
       <div className="text-xs text-gray-500 mb-2">
-        {completed} of {steps.length} complete
+        {t("handoff.progress", {
+          count: String(completed),
+          total: String(steps.length),
+        })}
       </div>
 
       <ol className="flex-1 space-y-2">
@@ -120,15 +123,14 @@ export const HandedOffScreen = ({ steps }: Props) => {
                   : "text-gray-800"
               }`}
             >
-              {STEP_LABEL[s.type]}
+              {t(STEP_LABEL_KEYS[s.type])}
             </span>
           </li>
         ))}
       </ol>
 
       <p className="mt-4 text-xs text-gray-400 text-center">
-        You can close this window — the result will land in the review queue
-        when the customer finishes.
+        {t("handoff.canClose")}
       </p>
     </div>
   );

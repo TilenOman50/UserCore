@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { COUNTRIES } from "../lib/countries";
+import { t } from "../lib/i18n";
 
 type Props = {
   value: string;
@@ -78,7 +79,9 @@ export const CountryPicker = ({
             </span>
           </>
         ) : (
-          <span className="flex-1 text-left text-gray-400">Select country</span>
+          <span className="flex-1 text-left text-gray-400">
+            {t("common.selectCountry")}
+          </span>
         )}
         <svg
           width="14"
@@ -103,14 +106,14 @@ export const CountryPicker = ({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search…"
+              placeholder={t("common.search")}
               className="w-full px-2 py-1.5 text-sm border-0 focus:outline-none placeholder:text-gray-400"
             />
           </div>
           <div className="overflow-y-auto no-scrollbar flex-1">
             {filtered.length === 0 ? (
               <div className="px-3 py-4 text-sm text-gray-500 text-center">
-                No countries match &quot;{search}&quot;.
+                {t("common.noMatches")}
               </div>
             ) : (
               filtered.map((c) => (
