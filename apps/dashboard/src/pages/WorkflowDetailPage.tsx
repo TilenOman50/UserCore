@@ -2,23 +2,25 @@ import { useEffect, useState, type ComponentType } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
+  Ban,
   Check,
   ChevronDown,
   Copy,
-  Eye,
   FileText,
+  FlaskConical,
+  Hand,
   Home,
   IdCard,
   Mail,
   Phone,
   Play,
   Plus,
+  Radio,
   ScanFace,
   Search,
   Settings2,
   Shield,
   Trash2,
-  Users,
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -33,6 +35,7 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { LinkScenarioModal } from "../components/scenarios/LinkScenarioModal";
 import { SaveIndicator } from "../components/ui/SaveIndicator";
 import { BrandingSection } from "../components/workflows/BrandingSection";
+import { ProviderChooserModal } from "../components/workflows/ProviderChooserModal";
 import {
   ContactInfoConfigEditor,
   IdScanConfigEditor,
@@ -40,12 +43,9 @@ import {
   TermsAcceptanceConfigEditor,
 } from "../components/workflows/SubStepConfigEditors";
 import { TestFlowModal } from "../components/workflows/TestFlowModal";
+import { WorkflowProviderCard } from "../components/workflows/WorkflowProviderCard";
 import { COUNTRIES as COUNTRY_LIST } from "../lib/countries";
-import {
-  UPGRADE_HINT,
-  useCanManageConfig,
-  usePlan,
-} from "../lib/hooks/usePlan";
+import { useCanManageConfig, usePlan } from "../lib/hooks/usePlan";
 import { useScenariosList } from "../lib/hooks/useScenarios";
 import {
   useAddWorkflowStep,
@@ -65,6 +65,7 @@ import {
   type WorkflowStepType,
 } from "../lib/hooks/useWorkflows";
 import { useStartTestSession } from "../lib/hooks/useWorkflowSessions";
+import { PROVIDER_META } from "../lib/providerMeta";
 import { useWorkspace } from "../lib/workspaceContext";
 
 type IconComp = ComponentType<{ size?: number; className?: string }>;
@@ -79,7 +80,7 @@ const STEP_LABELS: Record<WorkflowStepType, string> = {
 
 const STEP_DESCRIPTIONS: Record<WorkflowStepType, string> = {
   "identity-verification":
-    "Document scan, face match, contact information and proof of residence.",
+    "Terms acceptance, email verification, document scan, liveness face scan, proof of residence and contact details.",
   "aml-screening":
     "Sanctions, PEP and adverse-media screening. Requires a provider.",
   "fraud-detection":
@@ -194,7 +195,9 @@ export const WorkflowDetailPage = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [testSessionId, setTestSessionId] = useState<string | null>(null);
+  const [testFlow, setTestFlow] = useState<{
+    sessionId: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!workflowQuery.data) return;
@@ -287,18 +290,6 @@ export const WorkflowDetailPage = () => {
               className="mt-1 w-full text-sm text-gray-500 bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-primary-400 focus:outline-none focus:bg-primary-50/30 px-1 -ml-1 resize-none transition-colors disabled:hover:border-transparent disabled:cursor-not-allowed"
             />
             <div className="mt-2 flex items-center gap-2 text-xs flex-wrap">
-              <span
-                className={`px-2 py-0.5 rounded-full font-medium ${
-                  workflow.status === "ACTIVE"
-                    ? "bg-primary-100 text-primary-700"
-                    : "bg-gray-100 text-gray-600"
-                }`}
-              >
-                {workflow.status.toLowerCase()}
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">
-                {workflow.verificationMode}
-              </span>
               {workflow.isDefault && (
                 <span className="px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 font-medium">
                   default
@@ -306,11 +297,20 @@ export const WorkflowDetailPage = () => {
               )}
               {workflow.valid ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 font-medium">
-                  <Check size={12} /> valid
+                  <Check size={12} /> Valid
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">
-                  <AlertTriangle size={12} /> needs config
+                  <AlertTriangle size={12} /> Needs config
+                </span>
+              )}
+              {workflow.verificationMode === "sandbox" ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">
+                  <FlaskConical size={12} /> Sandbox
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">
+                  <Radio size={12} /> Live
                 </span>
               )}
               {canEdit && <SaveIndicator status={saveStatus} />}
@@ -319,6 +319,44 @@ export const WorkflowDetailPage = () => {
           <div className="flex flex-col items-end gap-2 shrink-0">
             <div className="text-xs text-gray-400 font-mono">{workflow.id}</div>
             <div className="flex items-center gap-2">
+              {(() => {
+                const isLive = workflow.verificationMode === "production";
+                const disabled = !canEdit || update.isPending;
+                const title = !canEdit
+                  ? "Only owners and admins can change workflow mode."
+                  : isLive
+                    ? "Turn off to go back to Sandbox — provider calls are mocked."
+                    : "Turn on to go Live — real provider APIs will be called.";
+                return (
+                  <div className="flex items-center gap-2" title={title}>
+                    <span className="text-sm text-gray-500">Live mode</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isLive}
+                      disabled={disabled}
+                      onClick={() => {
+                        if (disabled) return;
+                        update.mutate({
+                          workflowId: workflow.id,
+                          patch: {
+                            verificationMode: isLive ? "sandbox" : "production",
+                          },
+                        });
+                      }}
+                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-200 disabled:cursor-not-allowed disabled:opacity-50 ${
+                        isLive ? "bg-primary-500" : "bg-gray-300"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          isLive ? "translate-x-4" : "translate-x-0.5"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                );
+              })()}
               <button
                 type="button"
                 onClick={async () => {
@@ -326,7 +364,7 @@ export const WorkflowDetailPage = () => {
                   const session = await startTestSession.mutateAsync(
                     workflow.id,
                   );
-                  setTestSessionId(session.id);
+                  setTestFlow({ sessionId: session.id });
                 }}
                 disabled={!workflow.valid || startTestSession.isPending}
                 title={
@@ -357,10 +395,10 @@ export const WorkflowDetailPage = () => {
         </div>
       </div>
 
-      {testSessionId && (
+      {testFlow && (
         <TestFlowModal
-          sessionId={testSessionId}
-          onClose={() => setTestSessionId(null)}
+          sessionId={testFlow.sessionId}
+          onClose={() => setTestFlow(null)}
         />
       )}
 
@@ -547,16 +585,16 @@ const StepCard = ({
             </span>
             {step.valid ? (
               <span className="inline-flex items-center gap-1 text-xs text-primary-700 bg-primary-100 px-2 py-0.5 rounded-full font-medium">
-                <Check size={11} /> valid
+                <Check size={11} /> Valid
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 text-xs text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full font-medium">
-                <AlertTriangle size={11} /> needs config
+                <AlertTriangle size={11} /> Needs config
               </span>
             )}
             {step.provider && (
-              <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
-                {step.provider}
+              <span className="inline-flex items-center gap-1 text-xs text-primary-700 bg-primary-100 px-2 py-0.5 rounded-full font-medium">
+                {PROVIDER_META[step.provider]?.name ?? step.provider}
               </span>
             )}
           </div>
@@ -737,6 +775,9 @@ const IdentityVerificationDetail = ({
   const providers = PROVIDER_OPTIONS["identity-verification"];
   const { isProviderAllowed } = usePlan();
   const providersAllowed = isProviderAllowed("identity-verification");
+  const [chooserOpen, setChooserOpen] = useState(false);
+
+  const provider = providers[0]?.value ?? null;
 
   return (
     <div className="border-t border-gray-100 bg-gray-50/50 p-5 space-y-6">
@@ -745,11 +786,12 @@ const IdentityVerificationDetail = ({
           Provider
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <ProviderCard
+          <WorkflowProviderCard
+            variant="no-provider"
             label="No provider"
-            description="Customers upload documents; an officer reviews them in the dashboard."
+            description="Customers go through UserCore's in-house flow (terms, email OTP, doc scan, liveness). Officers review submissions in the dashboard."
             selected={step.provider === null}
-            icon={Users}
+            icon={Hand}
             readOnly={!canEdit}
             onClick={() =>
               canEdit &&
@@ -759,30 +801,40 @@ const IdentityVerificationDetail = ({
               })
             }
           />
-          {providers.map((p) => (
-            <ProviderCard
-              key={p.value}
-              label={p.label}
-              description={
-                providersAllowed
-                  ? p.description
-                  : `${p.description} — Upgrade to Growth to enable.`
-              }
-              selected={step.provider === p.value}
+          {provider && (
+            <WorkflowProviderCard
+              variant="provider"
+              provider={provider}
+              selected={step.provider === provider}
               locked={!providersAllowed}
               readOnly={!canEdit}
-              icon={Eye}
-              onClick={() =>
-                canEdit &&
-                providersAllowed &&
-                setProvider.mutate({
-                  workflowStepId: step.id,
-                  provider: p.value,
-                })
-              }
+              mode={step.providerCredentialMode}
+              onClick={() => {
+                if (!canEdit || !providersAllowed) return;
+                setChooserOpen(true);
+              }}
             />
-          ))}
+          )}
         </div>
+
+        {provider && (
+          <ProviderChooserModal
+            open={chooserOpen}
+            onClose={() => setChooserOpen(false)}
+            provider={provider}
+            stepLabel={STEP_LABELS["identity-verification"]}
+            isConnected={step.provider === provider}
+            currentMode={step.providerCredentialMode}
+            canEdit={canEdit}
+            onConfirm={(mode) =>
+              setProvider.mutate({
+                workflowStepId: step.id,
+                provider,
+                providerCredentialMode: mode,
+              })
+            }
+          />
+        )}
       </div>
 
       <div>
@@ -830,6 +882,12 @@ const ProviderSection = ({
   const providers = PROVIDER_OPTIONS[type];
   const { isProviderAllowed } = usePlan();
   const providersAllowed = isProviderAllowed(type);
+  const [chooserOpen, setChooserOpen] = useState(false);
+
+  // One provider option per non-identity step type today, so this is always
+  // the same shortName as PROVIDER_OPTIONS[type][0]. Kept flexible in case
+  // a step type grows to multiple options.
+  const provider = providers[0]?.value ?? null;
 
   return (
     <div className="border-t border-gray-100 bg-gray-50/50 p-5">
@@ -837,11 +895,12 @@ const ProviderSection = ({
         Provider
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <ProviderCard
+        <WorkflowProviderCard
+          variant="no-provider"
           label="No provider"
-          description="Step skipped — needs a provider to run."
+          description="Step skipped — UserCore won't run an automated check for this step."
           selected={step.provider === null}
-          icon={AlertTriangle}
+          icon={Ban}
           readOnly={!canEdit}
           onClick={() =>
             canEdit &&
@@ -852,97 +911,42 @@ const ProviderSection = ({
             })
           }
         />
-        {providers.map((p) => (
-          <ProviderCard
-            key={p.value}
-            label={p.label}
-            description={
-              providersAllowed
-                ? p.description
-                : `${p.description} — Upgrade to Growth to enable.`
-            }
-            selected={step.provider === p.value}
+        {provider && (
+          <WorkflowProviderCard
+            variant="provider"
+            provider={provider}
+            selected={step.provider === provider}
             locked={!providersAllowed}
             readOnly={!canEdit}
-            icon={Eye}
-            onClick={() =>
-              canEdit &&
-              providersAllowed &&
-              setProvider.mutate({
-                workflowStepId: step.id,
-                type,
-                provider: p.value,
-              })
-            }
+            mode={step.providerCredentialMode}
+            onClick={() => {
+              if (!canEdit || !providersAllowed) return;
+              setChooserOpen(true);
+            }}
           />
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const ProviderCard = ({
-  label,
-  description,
-  selected,
-  icon: Icon,
-  onClick,
-  locked = false,
-  readOnly = false,
-}: {
-  label: string;
-  description: string;
-  selected: boolean;
-  icon: IconComp;
-  onClick: () => void;
-  // Plan-level: provider isn't included in the org's plan. Shows the
-  // "Locked" pill and the upgrade hint.
-  locked?: boolean;
-  // Role-level: the user is a member, so can't change anything. Card stays
-  // in its current state (selected stays selected) but isn't clickable.
-  readOnly?: boolean;
-}) => {
-  const disabled = locked || readOnly;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={
-        locked
-          ? UPGRADE_HINT
-          : readOnly
-            ? "Only owners and admins can change providers."
-            : undefined
-      }
-      className={`p-4 rounded-xl border text-left transition-colors ${
-        locked
-          ? "border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed"
-          : selected
-            ? `border-primary-400 bg-white ring-2 ring-primary-200 ${readOnly ? "cursor-not-allowed" : ""}`
-            : `border-gray-200 bg-white ${readOnly ? "opacity-70 cursor-not-allowed" : "hover:border-primary-300"}`
-      }`}
-    >
-      <div className="flex items-center gap-3 mb-1">
-        <div className="w-9 h-9 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center shrink-0 text-gray-700">
-          <Icon size={16} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
-            {label}
-            {locked && (
-              <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">
-                Locked
-              </span>
-            )}
-          </div>
-        </div>
-        {selected && !locked && (
-          <Check size={16} className="text-primary-600 shrink-0" />
         )}
       </div>
-      <div className="text-xs text-gray-500">{description}</div>
-    </button>
+
+      {provider && (
+        <ProviderChooserModal
+          open={chooserOpen}
+          onClose={() => setChooserOpen(false)}
+          provider={provider}
+          stepLabel={STEP_LABELS[type]}
+          isConnected={step.provider === provider}
+          currentMode={step.providerCredentialMode}
+          canEdit={canEdit}
+          onConfirm={(mode) =>
+            setProvider.mutate({
+              workflowStepId: step.id,
+              type,
+              provider,
+              providerCredentialMode: mode,
+            })
+          }
+        />
+      )}
+    </div>
   );
 };
 

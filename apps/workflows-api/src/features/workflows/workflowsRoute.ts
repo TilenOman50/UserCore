@@ -2,7 +2,6 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 
 import {
   WorkflowBrandingSchema,
-  WorkflowStatusEnum,
   WorkflowStepTypeEnum,
   WorkflowTypeEnum,
   WorkflowVerificationModeEnum,
@@ -22,6 +21,7 @@ const WorkflowStepSchema = z.object({
   type: WorkflowStepTypeEnum,
   workflowId: z.string(),
   provider: z.string().nullable(),
+  providerCredentialMode: z.enum(["managed", "byo"]),
   valid: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -29,7 +29,6 @@ const WorkflowStepSchema = z.object({
 
 const WorkflowSchema = z.object({
   id: z.string(),
-  status: WorkflowStatusEnum,
   type: WorkflowTypeEnum,
   workspaceId: z.string(),
   organizationId: z.string(),
@@ -53,7 +52,6 @@ const CreateWorkflowSchema = z.object({
   organizationId: z.string(),
   displayName: z.string().min(1).max(120),
   type: WorkflowTypeEnum.optional(),
-  status: WorkflowStatusEnum.optional(),
   verificationMode: WorkflowVerificationModeEnum.optional(),
   isDefault: z.boolean().optional(),
 });
@@ -61,7 +59,6 @@ const CreateWorkflowSchema = z.object({
 const UpdateWorkflowSchema = z.object({
   displayName: z.string().min(1).max(120).optional(),
   description: z.string().nullable().optional(),
-  status: WorkflowStatusEnum.optional(),
   verificationMode: WorkflowVerificationModeEnum.optional(),
   isDefault: z.boolean().optional(),
   branding: WorkflowBrandingSchema.optional(),
@@ -71,7 +68,6 @@ const ErrorSchema = z.object({ error: z.string() });
 
 const serializeWorkflow = (w: Workflow) => ({
   id: w.id,
-  status: w.status,
   type: w.type,
   workspaceId: w.workspaceId,
   organizationId: w.organizationId,
@@ -91,6 +87,7 @@ const serializeStep = (s: WorkflowStep) => ({
   type: s.type,
   workflowId: s.workflowId,
   provider: s.provider,
+  providerCredentialMode: s.providerCredentialMode,
   valid: s.valid,
   createdAt: s.createdAt.toISOString(),
   updatedAt: s.updatedAt.toISOString(),

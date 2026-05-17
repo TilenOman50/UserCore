@@ -1,6 +1,9 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 
-import { ProviderShortNameEnum } from "@usercore/shared-types";
+import {
+  ProviderCredentialModeEnum,
+  ProviderShortNameEnum,
+} from "@usercore/shared-types";
 
 import type {
   RulesEngineScenario,
@@ -35,6 +38,7 @@ const WorkflowStepSchema = z.object({
   workflowId: z.string(),
   type: z.string(),
   provider: ProviderShortNameEnum.nullable(),
+  providerCredentialMode: ProviderCredentialModeEnum,
   valid: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -62,6 +66,7 @@ const serializeWorkflowStep = (s: WorkflowStep) => ({
   workflowId: s.workflowId,
   type: s.type,
   provider: s.provider,
+  providerCredentialMode: s.providerCredentialMode,
   valid: s.valid,
   createdAt: s.createdAt.toISOString(),
   updatedAt: s.updatedAt.toISOString(),

@@ -188,7 +188,7 @@ export const createWorkflowSessionsRouter = (props: {
               "application/json": {
                 schema: z.object({
                   error: z.string(),
-                  code: z.string(),
+                  code: z.literal("plan_limit_exceeded"),
                   used: z.number(),
                   max: z.number(),
                 }),
@@ -301,9 +301,20 @@ export const createWorkflowSessionsRouter = (props: {
       async (c) => {
         const { id } = c.req.valid("param");
         const body = c.req.valid("json");
+        // Server-derived client IP for fraud-detection (IPQS). Behind a
+        // proxy/tunnel the real customer IP is the first entry of
+        // x-forwarded-for; x-real-ip is the nginx/ngrok fallback. Not
+        // spoofable by the widget since we read it off the connection
+        // headers, not the request body.
+        const forwardedFor = c.req.header("x-forwarded-for");
+        const clientIp =
+          forwardedFor?.split(",")[0]?.trim() ||
+          c.req.header("x-real-ip") ||
+          null;
         const row = await workflowSessionsService.recordStepStatus({
           sessionId: id,
           ...body,
+          clientIp,
         });
         return c.json(serializeStep(row!), 200);
       },

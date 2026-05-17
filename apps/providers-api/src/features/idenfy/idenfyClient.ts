@@ -30,6 +30,14 @@ export type IdenfyStartSessionOutput = {
   scanUrl: string;
 };
 
+// Per-call credential override — null / undefined means "use env defaults"
+// (the UserCore-managed path), while a populated object routes through the
+// customer's BYO key/secret.
+export type IdenfyCredentialsOverride = {
+  apiKey: string;
+  apiSecret: string | null;
+} | null;
+
 export const createIdenfyClient = (props: {
   env: Pick<
     typeof Env,
@@ -41,15 +49,16 @@ export const createIdenfyClient = (props: {
 
   const startSession = async (
     input: IdenfyStartSessionInput,
+    credentials?: IdenfyCredentialsOverride,
   ): Promise<IdenfyStartSessionOutput> => {
-    if (!env.IDENFY_API_KEY || !env.IDENFY_API_SECRET) {
+    const apiKey = credentials?.apiKey ?? env.IDENFY_API_KEY;
+    const apiSecret = credentials?.apiSecret ?? env.IDENFY_API_SECRET;
+    if (!apiKey || !apiSecret) {
       throw new Error(
         "iDenfy credentials missing (IDENFY_API_KEY/IDENFY_API_SECRET)",
       );
     }
-    const auth = Buffer.from(
-      `${env.IDENFY_API_KEY}:${env.IDENFY_API_SECRET}`,
-    ).toString("base64");
+    const auth = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
     const res = await fetch(`${env.IDENFY_BASE_URL}/api/v2/token`, {
       method: "POST",
       headers: {

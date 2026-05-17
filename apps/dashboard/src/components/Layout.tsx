@@ -14,6 +14,7 @@ const navItems = [
   { path: "/workflows", label: "Workflows" },
   { path: "/kyc-review", label: "KYC Review" },
   { path: "/scenarios", label: "Scenarios" },
+  { path: "/providers", label: "Providers" },
   { path: "/settings", label: "Settings" },
 ];
 

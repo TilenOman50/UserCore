@@ -1,5 +1,8 @@
 import type { Logger } from "@usercore/logger";
-import type { ProviderShortName } from "@usercore/shared-types";
+import type {
+  ProviderCredentialMode,
+  ProviderShortName,
+} from "@usercore/shared-types";
 
 import type { WorkflowsService } from "../workflows/workflowsService";
 import type { WorkflowStepsRepository } from "../workflowSteps/workflowStepsRepository";
@@ -63,9 +66,13 @@ export const createIdentityVerificationService = (props: {
   const setProvider = async (data: {
     workflowStepId: string;
     provider: ProviderShortName | null;
+    // Per-step BYO toggle — defaults to "managed" so existing call sites
+    // that only pass `provider` keep their current behaviour.
+    providerCredentialMode?: ProviderCredentialMode;
   }) => {
     const updated = await workflowStepsRepository.update(data.workflowStepId, {
       provider: data.provider,
+      providerCredentialMode: data.providerCredentialMode ?? "managed",
     });
     if (updated) {
       await workflowsService.recomputeValidity(updated.workflowId);

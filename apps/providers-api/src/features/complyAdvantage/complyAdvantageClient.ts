@@ -41,13 +41,17 @@ export const createComplyAdvantageClient = (props: {
 
   const search = async (
     input: ComplyAdvantageSearchInput,
+    // Per-call override — populated when the originating org has BYO
+    // credentials configured + enabled. Null routes through env keys.
+    apiKeyOverride?: string | null,
   ): Promise<ComplyAdvantageSearchOutput> => {
-    if (!env.COMPLY_ADVANTAGE_API_KEY) {
+    const apiKey = apiKeyOverride ?? env.COMPLY_ADVANTAGE_API_KEY;
+    if (!apiKey) {
       throw new Error(
         "ComplyAdvantage API key missing (COMPLY_ADVANTAGE_API_KEY)",
       );
     }
-    const url = `${env.COMPLY_ADVANTAGE_BASE_URL}/searches?api_key=${env.COMPLY_ADVANTAGE_API_KEY}`;
+    const url = `${env.COMPLY_ADVANTAGE_BASE_URL}/searches?api_key=${apiKey}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

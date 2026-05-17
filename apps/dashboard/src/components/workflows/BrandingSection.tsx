@@ -175,8 +175,8 @@ export const BrandingSection = ({ workflowId, branding, canEdit }: Props) => {
               )}
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              Logo, colours, brand name, and the &quot;Powered by UserCore&quot;
-              footer.
+              Logo, colours, brand name, verification email sender, and footer
+              attribution.
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">

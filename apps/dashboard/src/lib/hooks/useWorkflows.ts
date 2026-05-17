@@ -19,11 +19,14 @@ export type IdentityVerificationSubStepType =
   | "proof-of-residence"
   | "terms-acceptance";
 
+export type ProviderCredentialMode = "managed" | "byo";
+
 export type WorkflowStep = {
   id: string;
   workflowId: string;
   type: WorkflowStepType;
   provider: ProviderShortName | null;
+  providerCredentialMode: ProviderCredentialMode;
   valid: boolean;
   createdAt: string;
   updatedAt: string;
@@ -40,7 +43,6 @@ export type WorkflowBranding = {
 
 export type Workflow = {
   id: string;
-  status: "ACTIVE" | "INACTIVE";
   type: "USER_KYC";
   workspaceId: string;
   organizationId: string;
@@ -177,7 +179,6 @@ export const useUpdateWorkflow = () => {
       patch: Partial<{
         displayName: string;
         description: string | null;
-        status: "ACTIVE" | "INACTIVE";
         verificationMode: "sandbox" | "production";
         isDefault: boolean;
         branding: WorkflowBranding;
@@ -349,12 +350,16 @@ export const useSetIdentityProvider = () => {
     mutationFn: (data: {
       workflowStepId: string;
       provider: ProviderShortName | null;
+      providerCredentialMode?: ProviderCredentialMode;
     }) =>
       apiFetch(
         `${WORKFLOWS_API_URL}/workflows/workflow-steps/${encodeURIComponent(data.workflowStepId)}/identity-verification/provider`,
         {
           method: "PATCH",
-          body: JSON.stringify({ provider: data.provider }),
+          body: JSON.stringify({
+            provider: data.provider,
+            providerCredentialMode: data.providerCredentialMode,
+          }),
         },
       ),
     onSuccess: () => {
@@ -431,12 +436,16 @@ export const useSetStepProvider = () => {
       workflowStepId: string;
       type: "aml-screening" | "fraud-detection";
       provider: ProviderShortName | null;
+      providerCredentialMode?: ProviderCredentialMode;
     }) =>
       apiFetch<WorkflowStep>(
         `${WORKFLOWS_API_URL}/workflows/workflow-steps/${encodeURIComponent(data.workflowStepId)}/${data.type}/provider`,
         {
           method: "PATCH",
-          body: JSON.stringify({ provider: data.provider }),
+          body: JSON.stringify({
+            provider: data.provider,
+            providerCredentialMode: data.providerCredentialMode,
+          }),
         },
       ),
     onSuccess: () => {

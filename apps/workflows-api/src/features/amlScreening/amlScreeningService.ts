@@ -1,5 +1,8 @@
 import type { Logger } from "@usercore/logger";
-import type { ProviderShortName } from "@usercore/shared-types";
+import type {
+  ProviderCredentialMode,
+  ProviderShortName,
+} from "@usercore/shared-types";
 
 import type { WorkflowsService } from "../workflows/workflowsService";
 import type { WorkflowStepsRepository } from "../workflowSteps/workflowStepsRepository";
@@ -65,9 +68,11 @@ export const createAmlScreeningService = (props: {
   const setProvider = async (data: {
     workflowStepId: string;
     provider: ProviderShortName | null;
+    providerCredentialMode?: ProviderCredentialMode;
   }) => {
     const updated = await workflowStepsRepository.update(data.workflowStepId, {
       provider: data.provider,
+      providerCredentialMode: data.providerCredentialMode ?? "managed",
       valid: data.provider !== null,
     });
     if (updated) {

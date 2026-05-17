@@ -1,0 +1,1 @@
+ALTER TABLE "workflow_step" ADD COLUMN "provider_credential_mode" text DEFAULT 'managed' NOT NULL;

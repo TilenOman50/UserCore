@@ -10,6 +10,10 @@ const EnvSchema = z.object({
     .default("info"),
   RABBITMQ_URL: z.string().default("amqp://usercore:usercore@localhost:5672"),
 
+  // Used at dispatch time to look up the customer's effective credentials
+  // (BYO override or managed fallback) before calling the real provider.
+  WORKFLOWS_API_URL: z.string().default("http://localhost:3004"),
+
   // iDenfy — identity verification (id-scan, face-scan, liveness)
   IDENFY_API_KEY: z.string().optional(),
   IDENFY_API_SECRET: z.string().optional(),

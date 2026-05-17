@@ -446,11 +446,6 @@ export const WORKFLOW_TYPES = ["USER_KYC"] as const;
 export const WorkflowTypeEnum = z.enum(WORKFLOW_TYPES);
 export type WorkflowType = z.infer<typeof WorkflowTypeEnum>;
 
-// Deployment status of a workflow definition.
-export const WORKFLOW_STATUSES = ["ACTIVE", "INACTIVE"] as const;
-export const WorkflowStatusEnum = z.enum(WORKFLOW_STATUSES);
-export type WorkflowStatus = z.infer<typeof WorkflowStatusEnum>;
-
 // Workflows can be tested in sandbox or run against real providers in production.
 export const WORKFLOW_VERIFICATION_MODES = ["sandbox", "production"] as const;
 export const WorkflowVerificationModeEnum = z.enum(WORKFLOW_VERIFICATION_MODES);
@@ -589,6 +584,15 @@ export const PROVIDER_SHORT_NAMES = [
 export const ProviderShortNameEnum = z.enum(PROVIDER_SHORT_NAMES);
 export type ProviderShortName = z.infer<typeof ProviderShortNameEnum>;
 
+// Per-step decision: should the provider dispatch route through UserCore's
+// managed env credentials, or through the org's bring-your-own credentials
+// saved on the Providers page. "managed" is the default; "byo" only takes
+// effect when credentials actually exist for that (org, provider) pair —
+// otherwise the dispatcher falls back to managed.
+export const PROVIDER_CREDENTIAL_MODES = ["managed", "byo"] as const;
+export const ProviderCredentialModeEnum = z.enum(PROVIDER_CREDENTIAL_MODES);
+export type ProviderCredentialMode = z.infer<typeof ProviderCredentialModeEnum>;
+
 // Granular step identifier used in WorkflowSessionSteps — covers both top-level
 // steps and identity-verification sub-steps so we can log status for each.
 export const WORKFLOW_SESSION_STEP_TYPES = [
@@ -647,9 +651,26 @@ export const ProviderCheckRequestedPayload = z.object({
   providerShortName: ProviderShortNameEnum,
   workspaceId: z.string(),
   customerId: z.string(),
+  // sandbox → dispatcher short-circuits with a canned happy-path response
+  // (no real API call, no usage charges). production → real provider HTTP.
+  // Inherited from the originating workflow session.
+  verificationMode: WorkflowVerificationModeEnum,
   // Step-specific input. The dispatcher in workflows-api fills this with
   // whatever the provider needs (e.g. customer name + DOB for AML screening).
   data: z.record(z.string(), z.unknown()),
+  // Effective credentials resolved by workflows-api at publish time. When
+  // the org has BYO enabled for this provider, their key (+ secret for
+  // iDenfy) is embedded here so the dispatcher can route through their
+  // account. Null/undefined means "use managed credentials" — the
+  // dispatcher falls back to env keys. In production these would be
+  // short-lived tokens rather than raw keys travelling through the queue.
+  credentials: z
+    .object({
+      apiKey: z.string().nullable(),
+      apiSecret: z.string().nullable(),
+    })
+    .nullable()
+    .optional(),
 });
 export type ProviderCheckRequestedPayload = z.infer<
   typeof ProviderCheckRequestedPayload

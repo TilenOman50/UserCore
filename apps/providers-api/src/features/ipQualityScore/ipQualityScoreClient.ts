@@ -29,11 +29,15 @@ export const createIpQualityScoreClient = (props: {
 
   const checkIp = async (
     input: IpQualityScoreInput,
+    // Per-call override — populated when the originating org has BYO
+    // credentials configured + enabled. Null routes through env keys.
+    apiKeyOverride?: string | null,
   ): Promise<IpQualityScoreOutput> => {
-    if (!env.IPQS_API_KEY) {
+    const apiKey = apiKeyOverride ?? env.IPQS_API_KEY;
+    if (!apiKey) {
       throw new Error("IPQS API key missing (IPQS_API_KEY)");
     }
-    const url = `${env.IPQS_BASE_URL}/ip/${env.IPQS_API_KEY}/${encodeURIComponent(input.ip)}`;
+    const url = `${env.IPQS_BASE_URL}/ip/${apiKey}/${encodeURIComponent(input.ip)}`;
     const res = await fetch(url);
     if (!res.ok) {
       const body = await res.text();

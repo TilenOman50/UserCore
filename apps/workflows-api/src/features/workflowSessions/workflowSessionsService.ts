@@ -3,6 +3,7 @@ import type { RabbitMQClient } from "@usercore/rabbitmq";
 import type {
   ExternalSessionSource,
   KycStatus,
+  ProviderShortName,
   WorkflowSessionStatus,
   WorkflowSessionStepType,
   WorkflowVerificationMode,
@@ -11,12 +12,16 @@ import {
   atLimit,
   EVENTS,
   getPlanFeatures,
+  PROVIDER_EVENTS,
   type KycCompletedPayload,
+  type ProviderCheckRequestedPayload,
 } from "@usercore/shared-types";
 
 import type { StorageService } from "../../storage/storageService";
 import type { PlanClient } from "../plans/planClient";
+import type { ProviderConfigurationsService } from "../providerConfigurations/providerConfigurationsService";
 import type { WorkflowsRepository } from "../workflows/workflowsRepository";
+import type { WorkflowStepsRepository } from "../workflowSteps/workflowStepsRepository";
 import type {
   AttributeUpsert,
   WorkflowSessionAttributesRepository,
@@ -60,6 +65,8 @@ export const createWorkflowSessionsService = (props: {
   workflowSessionStepsRepository: WorkflowSessionStepsRepository;
   workflowSessionAttributesRepository: WorkflowSessionAttributesRepository;
   workflowsRepository: WorkflowsRepository;
+  workflowStepsRepository: WorkflowStepsRepository;
+  providerConfigurationsService: ProviderConfigurationsService;
   storageService: StorageService;
   planClient: PlanClient;
   rabbitMQ: RabbitMQClient;
@@ -70,6 +77,8 @@ export const createWorkflowSessionsService = (props: {
     workflowSessionStepsRepository,
     workflowSessionAttributesRepository,
     workflowsRepository,
+    workflowStepsRepository,
+    providerConfigurationsService,
     storageService,
     planClient,
     rabbitMQ,
@@ -296,6 +305,90 @@ export const createWorkflowSessionsService = (props: {
     return workflowSessionsRepository.listByWorkspace(workspaceId);
   };
 
+  // Build the `data` blob each provider check receives. We pluck whatever
+  // session attributes we have (collected during identity-verification) and
+  // pass them through with provider-friendly key names. Missing fields are
+  // simply absent — the dispatcher handlers will read `searchTerm`, `ip`
+  // etc. and decide what to do with what's there.
+  const buildCheckRequestData = (
+    attributes: { attribute: string; value: string }[],
+  ): Record<string, unknown> => {
+    const find = (key: string) =>
+      attributes.find((a) => a.attribute === key)?.value;
+    const street = find("address.street");
+    const city = find("address.city");
+    const country = find("address.country");
+    const email = find("contact_information.email");
+    return {
+      searchTerm: email ?? "",
+      email,
+      phone: find("contact_information.phone"),
+      country,
+      address: [street, city, country].filter(Boolean).join(", ") || undefined,
+      // Server-derived at submit time (see recordStepStatus). Empty when the
+      // request didn't come through a proxy that set x-forwarded-for (e.g.
+      // bare localhost) — IPQS then returns a low-confidence result.
+      ip: find("_session.client_ip") ?? "",
+    };
+  };
+
+  const publishProviderChecksForSession = async (sessionId: string) => {
+    const session = await workflowSessionsRepository.findById(sessionId);
+    if (!session) return;
+    const workflow = await workflowsRepository.findById(session.workflowId);
+    if (!workflow) return;
+    const steps = await workflowStepsRepository.findByWorkflowId(
+      session.workflowId,
+    );
+    const providerSteps = steps.filter(
+      (s) =>
+        s.provider !== null &&
+        (s.type === "aml-screening" || s.type === "fraud-detection"),
+    );
+    if (providerSteps.length === 0) return;
+
+    const attributes =
+      await workflowSessionAttributesRepository.findBySessionId(sessionId);
+    const checkData = buildCheckRequestData(attributes);
+
+    for (const step of providerSteps) {
+      if (!step.provider) continue;
+      const effective = await providerConfigurationsService.getEffectiveConfig({
+        workflowSessionId: sessionId,
+        provider: step.provider as ProviderShortName,
+      });
+      const payload: ProviderCheckRequestedPayload = {
+        workflowSessionId: sessionId,
+        workflowStepType: step.type,
+        providerShortName: step.provider as ProviderShortName,
+        workspaceId: workflow.workspaceId,
+        customerId: session.customerId,
+        // Tell the dispatcher whether to short-circuit with a canned
+        // response (sandbox) or hit the real provider (production). Read
+        // off the session — the workflow's mode is captured there at
+        // session-create time so a mid-flight mode flip can't surprise
+        // us during dispatch.
+        verificationMode: session.verificationMode,
+        data: checkData,
+        credentials:
+          effective.mode === "byo"
+            ? { apiKey: effective.apiKey, apiSecret: effective.apiSecret }
+            : null,
+      };
+      await rabbitMQ.publish({
+        exchange: "usercore.events",
+        routingKey: PROVIDER_EVENTS.CHECK_REQUESTED,
+        payload,
+      });
+      logger.info({
+        msg: "Published providers.check.requested",
+        sessionId,
+        provider: step.provider,
+        mode: effective.mode,
+      });
+    }
+  };
+
   const recordStepStatus = async (data: {
     sessionId: string;
     step: WorkflowSessionStepType;
@@ -303,8 +396,52 @@ export const createWorkflowSessionsService = (props: {
     message?: string | null;
     parentStepId?: string | null;
     traceId?: string | null;
+    // Server-derived customer IP, captured by the route off the connection
+    // headers. Persisted as an attribute so fraud-detection (IPQS) can use
+    // it. Not part of the step row.
+    clientIp?: string | null;
   }) => {
-    return workflowSessionStepsRepository.upsert(data);
+    const { clientIp, ...stepData } = data;
+    const row = await workflowSessionStepsRepository.upsert(stepData);
+    // Identity-verification reaching REQUIRES_REVIEW is our "session
+    // submitted by customer" signal — fan out any provider checks the
+    // workflow has configured (AML, fraud) so they run in the background
+    // while the manual reviewer waits to make a decision.
+    if (
+      data.step === "identity-verification" &&
+      data.status === "REQUIRES_REVIEW"
+    ) {
+      // Stash the IP first so it's available when buildCheckRequestData
+      // assembles the IPQS payload below.
+      if (clientIp) {
+        await workflowSessionAttributesRepository
+          .batchUpsert({
+            workflowSessionId: data.sessionId,
+            attributes: [
+              {
+                attribute: "_session.client_ip",
+                value: clientIp,
+                attributeType: "STRING",
+              },
+            ],
+          })
+          .catch((err) => {
+            logger.warn({
+              msg: "Failed to persist client IP — IPQS will run without it",
+              sessionId: data.sessionId,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          });
+      }
+      publishProviderChecksForSession(data.sessionId).catch((err) => {
+        logger.error({
+          msg: "Failed to publish provider check requests",
+          sessionId: data.sessionId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    }
+    return row;
   };
 
   const writeAttributes = async (data: {

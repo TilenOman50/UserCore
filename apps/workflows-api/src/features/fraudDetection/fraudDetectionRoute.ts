@@ -1,6 +1,9 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 
-import { ProviderShortNameEnum } from "@usercore/shared-types";
+import {
+  ProviderCredentialModeEnum,
+  ProviderShortNameEnum,
+} from "@usercore/shared-types";
 
 import type { FraudDetectionStep, WorkflowStep } from "../../db/schema.db";
 import type { ContextVariables } from "../../types";
@@ -20,6 +23,7 @@ const WorkflowStepSchema = z.object({
   workflowId: z.string(),
   type: z.string(),
   provider: ProviderShortNameEnum.nullable(),
+  providerCredentialMode: ProviderCredentialModeEnum,
   valid: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -41,6 +45,7 @@ const serializeWorkflowStep = (s: WorkflowStep) => ({
   workflowId: s.workflowId,
   type: s.type,
   provider: s.provider,
+  providerCredentialMode: s.providerCredentialMode,
   valid: s.valid,
   createdAt: s.createdAt.toISOString(),
   updatedAt: s.updatedAt.toISOString(),
@@ -157,6 +162,7 @@ export const createFraudDetectionRouter = (props: {
               "application/json": {
                 schema: z.object({
                   provider: ProviderShortNameEnum.nullable(),
+                  providerCredentialMode: ProviderCredentialModeEnum.optional(),
                 }),
               },
             },
@@ -171,10 +177,11 @@ export const createFraudDetectionRouter = (props: {
       }),
       async (c) => {
         const { workflowStepId } = c.req.valid("param");
-        const { provider } = c.req.valid("json");
+        const { provider, providerCredentialMode } = c.req.valid("json");
         const step = await fraudDetectionService.setProvider({
           workflowStepId,
           provider,
+          providerCredentialMode,
         });
         return c.json(serializeWorkflowStep(step!), 200);
       },

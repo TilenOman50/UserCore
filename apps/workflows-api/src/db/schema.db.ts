@@ -16,6 +16,7 @@ import type {
   AttributeType,
   ExternalSessionSource,
   IdentityVerificationSubStepType,
+  ProviderCredentialMode,
   WorkflowBranding,
   WorkflowReason,
   WorkflowSessionStatus,
@@ -25,7 +26,6 @@ import {
   ATTRIBUTE_TYPES,
   generateId,
   PROVIDER_SHORT_NAMES,
-  WORKFLOW_STATUSES,
   WORKFLOW_STEP_TYPES,
   WORKFLOW_TYPES,
   WORKFLOW_VERIFICATION_MODES,
@@ -36,7 +36,6 @@ import {
 // optional provider integrations dispatched through providers-api.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const workflowStatusEnum = pgEnum("workflow_status", WORKFLOW_STATUSES);
 export const workflowTypeEnum = pgEnum("workflow_type", WORKFLOW_TYPES);
 export const workflowVerificationModeEnum = pgEnum(
   "workflow_verification_mode",
@@ -60,7 +59,6 @@ export const WorkflowTable = pgTable(
     id: text("id")
       .primaryKey()
       .$defaultFn(() => generateId("workflow")),
-    status: workflowStatusEnum("status").notNull().default("INACTIVE"),
     type: workflowTypeEnum("type").notNull().default("USER_KYC"),
     workspaceId: text("workspace_id").notNull(),
     organizationId: text("organization_id").notNull(),
@@ -92,7 +90,6 @@ export const WorkflowTable = pgTable(
       table.workspaceId,
       table.organizationId,
     ),
-    statusIdx: index("workflow_status_idx").on(table.status),
     typeIdx: index("workflow_type_idx").on(table.type),
   }),
 );
@@ -113,6 +110,15 @@ export const WorkflowStepTable = pgTable(
     // Null means "use UserCore's built-in path" (manual review for identity,
     // skipped for AML/fraud). Non-null routes to providers-api.
     provider: providerShortNameEnum("provider"),
+    // "managed" → UserCore's env credentials handle the dispatch (default,
+    // included in plan). "byo" → the org's saved credentials in
+    // provider_configuration are used for this specific step. Irrelevant
+    // when provider is null. Per-step so the same workflow can mix managed
+    // AML with bring-your-own identity, etc.
+    providerCredentialMode: text("provider_credential_mode")
+      .$type<ProviderCredentialMode>()
+      .notNull()
+      .default("managed"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -362,6 +368,37 @@ export const WorkflowSessionAttributeTable = pgTable(
   }),
 );
 
+// Per-organization credentials + toggle for each external provider. Source
+// of truth for the dashboard's Providers page; the runtime dispatcher still
+// reads from env credentials today (a per-org runtime fetch is a future
+// task) but the data model is correct from day one so the migration path
+// is straightforward.
+export const ProviderConfigurationTable = pgTable(
+  "provider_configuration",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => generateId("providerconfig")),
+    organizationId: text("organization_id").notNull(),
+    provider: providerShortNameEnum("provider").notNull(),
+    apiKey: text("api_key"),
+    apiSecret: text("api_secret"),
+    enabled: boolean("enabled").notNull().default(false),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    uniqueOrgProvider: unique("provider_configuration_unique_org_provider").on(
+      table.organizationId,
+      table.provider,
+    ),
+    organizationIdx: index("provider_configuration_organization_idx").on(
+      table.organizationId,
+    ),
+  }),
+);
+
 export type Workflow = typeof WorkflowTable.$inferSelect;
 export type NewWorkflow = typeof WorkflowTable.$inferInsert;
 export type WorkflowStep = typeof WorkflowStepTable.$inferSelect;
@@ -381,3 +418,7 @@ export type WorkflowSession = typeof WorkflowSessionTable.$inferSelect;
 export type WorkflowSessionStep = typeof WorkflowSessionStepTable.$inferSelect;
 export type WorkflowSessionAttribute =
   typeof WorkflowSessionAttributeTable.$inferSelect;
+export type ProviderConfiguration =
+  typeof ProviderConfigurationTable.$inferSelect;
+export type NewProviderConfiguration =
+  typeof ProviderConfigurationTable.$inferInsert;
