@@ -5,6 +5,7 @@ import { requestId } from "hono/request-id";
 
 import type { Logger } from "@usercore/logger";
 import type { RabbitMQClient } from "@usercore/rabbitmq";
+import { resolveDevCorsOrigin } from "@usercore/shared-types";
 
 import type { Database } from "./db/db";
 import { env } from "./env";
@@ -14,6 +15,9 @@ import { createAmlScreeningService } from "./features/amlScreening/amlScreeningS
 import { createDuplicateDetectionRepository } from "./features/duplicateDetection/duplicateDetectionRepository";
 import { createDuplicateDetectionRouter } from "./features/duplicateDetection/duplicateDetectionRoute";
 import { createDuplicateDetectionService } from "./features/duplicateDetection/duplicateDetectionService";
+import { createEmailVerificationRouter } from "./features/emailVerification/emailVerificationRoute";
+import { createEmailVerificationService } from "./features/emailVerification/emailVerificationService";
+import { createMailer } from "./features/emailVerification/mailer";
 import { createFraudDetectionRepository } from "./features/fraudDetection/fraudDetectionRepository";
 import { createFraudDetectionRouter } from "./features/fraudDetection/fraudDetectionRoute";
 import { createFraudDetectionService } from "./features/fraudDetection/fraudDetectionService";
@@ -90,6 +94,7 @@ export const createWorkflowsApi = async (props: {
   const workflowsService = createWorkflowsService({
     workflowsRepository,
     workflowStepsRepository,
+    storageService,
     logger,
   });
   const identityVerificationService = createIdentityVerificationService({
@@ -141,6 +146,15 @@ export const createWorkflowsApi = async (props: {
     rabbitMQ,
     logger,
   });
+  const mailer = createMailer({ logger });
+  const emailVerificationService = createEmailVerificationService({
+    attributesRepository: workflowSessionAttributesRepository,
+    sessionsRepository: workflowSessionsRepository,
+    workflowsRepository,
+    storageService,
+    mailer,
+    logger,
+  });
 
   // Provider check-completed handlers — consume responses from providers-api
   // and write them into session steps + attributes (EAV).
@@ -185,6 +199,9 @@ export const createWorkflowsApi = async (props: {
   const workflowSessionsRouter = createWorkflowSessionsRouter({
     workflowSessionsService,
   });
+  const emailVerificationRouter = createEmailVerificationRouter({
+    emailVerificationService,
+  });
 
   const app = new OpenAPIHono<{ Variables: ContextVariables }>();
 
@@ -192,9 +209,17 @@ export const createWorkflowsApi = async (props: {
   app.use(
     "*",
     cors({
-      origin: ["http://localhost:3000", "http://localhost:3007"],
+      origin: resolveDevCorsOrigin,
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowHeaders: ["Content-Type", "Authorization"],
+      // `ngrok-skip-browser-warning` is added by the widget on every fetch so
+      // ngrok-free doesn't return its HTML interstitial in place of API JSON.
+      // It triggers CORS preflight on cross-origin desktop calls, so it has
+      // to be listed here.
+      allowHeaders: [
+        "Content-Type",
+        "Authorization",
+        "ngrok-skip-browser-warning",
+      ],
       credentials: true,
     }),
   );
@@ -225,5 +250,6 @@ export const createWorkflowsApi = async (props: {
     .route(BASE_PATH, duplicateDetectionRouter)
     .route(BASE_PATH, rulesEngineRouter)
     .route(BASE_PATH, identityWidgetRouter)
-    .route(BASE_PATH, workflowSessionsRouter);
+    .route(BASE_PATH, workflowSessionsRouter)
+    .route(BASE_PATH, emailVerificationRouter);
 };

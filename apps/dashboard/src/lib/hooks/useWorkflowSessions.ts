@@ -69,9 +69,15 @@ export const useWorkflowSession = (sessionId: string | null) =>
     enabled: !!sessionId,
   });
 
+export type SessionFileKind =
+  | "document_front"
+  | "document_back"
+  | "face_video"
+  | "proof_of_residence";
+
 export const useSessionFileUrl = (
   sessionId: string | null,
-  kind: "document_front" | "document_back" | "face_video",
+  kind: SessionFileKind,
 ) =>
   useQuery({
     queryKey: ["workflow-session-file", sessionId, kind],
@@ -82,6 +88,34 @@ export const useSessionFileUrl = (
     enabled: !!sessionId,
     retry: false,
   });
+
+// Creates a sandbox session attributed to a throwaway customer id so the admin
+// can walk through the workflow without polluting real customer data.
+export const useStartTestSession = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (workflowId: string) => {
+      const stamp = Date.now();
+      const rand = Math.random().toString(36).slice(2, 10);
+      return apiFetch<WorkflowSession>(
+        `${WORKFLOWS_API_URL}/workflows/workflow-sessions`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            externalSessionId: `test_${stamp}_${rand}`,
+            externalSessionSource: "dashboard",
+            workflowId,
+            customerId: `test_${stamp}_${rand}`,
+            verificationMode: "sandbox",
+          }),
+        },
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["workflow-sessions"] });
+    },
+  });
+};
 
 export const useFinalizeSession = () => {
   const qc = useQueryClient();

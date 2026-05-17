@@ -2,6 +2,7 @@ import { and, count, desc, eq, isNull } from "drizzle-orm";
 
 import type { Logger } from "@usercore/logger";
 import type {
+  WorkflowBranding,
   WorkflowReason,
   WorkflowStatus,
   WorkflowType,
@@ -125,6 +126,7 @@ export const createWorkflowsRepository = (props: {
       status: WorkflowStatus;
       verificationMode: WorkflowVerificationMode;
       isDefault: boolean;
+      branding: WorkflowBranding;
     }>,
   ) => {
     const [workflow] = await db

@@ -1,6 +1,7 @@
 import type { Logger } from "@usercore/logger";
 import type {
   ProviderShortName,
+  WorkflowBranding,
   WorkflowReason,
   WorkflowStatus,
   WorkflowStepType,
@@ -8,6 +9,7 @@ import type {
   WorkflowVerificationMode,
 } from "@usercore/shared-types";
 
+import type { StorageService } from "../../storage/storageService";
 import type { WorkflowStepsRepository } from "../workflowSteps/workflowStepsRepository";
 import type { WorkflowsRepository } from "./workflowsRepository";
 
@@ -39,9 +41,15 @@ const describeInvalidStep = (
 export const createWorkflowsService = (props: {
   workflowsRepository: WorkflowsRepository;
   workflowStepsRepository: WorkflowStepsRepository;
+  storageService: StorageService;
   logger: Logger;
 }) => {
-  const { workflowsRepository, workflowStepsRepository, logger } = props;
+  const {
+    workflowsRepository,
+    workflowStepsRepository,
+    storageService,
+    logger,
+  } = props;
 
   const createWorkflow = async (data: {
     workspaceId: string;
@@ -92,6 +100,7 @@ export const createWorkflowsService = (props: {
       status: WorkflowStatus;
       verificationMode: WorkflowVerificationMode;
       isDefault: boolean;
+      branding: WorkflowBranding;
     }>,
   ) => {
     logger.info({ msg: "Updating workflow", workflowId: id });
@@ -101,6 +110,44 @@ export const createWorkflowsService = (props: {
   const deleteWorkflow = async (id: string) => {
     logger.info({ msg: "Deleting workflow", workflowId: id });
     await workflowsRepository.remove(id);
+  };
+
+  // Upload a brand logo and persist its MinIO key onto the workflow's
+  // branding config. Widget boot pulls a signed URL via getBrandingLogoUrl.
+  const uploadBrandingLogo = async (data: {
+    workflowId: string;
+    fileBuffer: Buffer;
+    mimeType: string;
+  }) => {
+    const key = `branding/${data.workflowId}/logo-${Date.now()}`;
+    await storageService.uploadFile({
+      key,
+      body: data.fileBuffer,
+      mimeType: data.mimeType,
+    });
+    const existing = await workflowsRepository.findById(data.workflowId);
+    if (!existing) return null;
+    const nextBranding = { ...(existing.branding ?? {}), logoS3Key: key };
+    return workflowsRepository.update(data.workflowId, {
+      branding: nextBranding,
+    });
+  };
+
+  const getBrandingLogoUrl = async (workflowId: string) => {
+    const workflow = await workflowsRepository.findById(workflowId);
+    if (!workflow?.branding?.logoS3Key) return null;
+    const url = await storageService.getSignedDownloadUrl(
+      workflow.branding.logoS3Key,
+    );
+    return { url, key: workflow.branding.logoS3Key };
+  };
+
+  // Bytes form — used by the widget so the phone (which can't reach
+  // dev-MinIO at localhost:9000) gets the logo proxied through the API host.
+  const getBrandingLogoBytes = async (workflowId: string) => {
+    const workflow = await workflowsRepository.findById(workflowId);
+    if (!workflow?.branding?.logoS3Key) return null;
+    return storageService.getObject(workflow.branding.logoS3Key);
   };
 
   // Recompute aggregate workflow validity from its child steps. Called after
@@ -137,6 +184,9 @@ export const createWorkflowsService = (props: {
     updateWorkflow,
     deleteWorkflow,
     recomputeValidity,
+    uploadBrandingLogo,
+    getBrandingLogoUrl,
+    getBrandingLogoBytes,
   };
 };
 

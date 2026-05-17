@@ -13,16 +13,20 @@ import { useWorkspace } from "../../lib/workspaceContext";
 
 type FeatureRow = {
   label: string;
-  render: (f: PlanFeatures) => string;
+  render: (f: PlanFeatures, plan: Plan) => string;
 };
 
 // Visual order for the comparison table.
 const ROWS: FeatureRow[] = [
   {
     label: "Identity verification provider",
-    render: (f) =>
+    // Enterprise gets the "+ custom" tail since enterprise customers can
+    // negotiate bespoke provider integrations; Growth is iDenfy-only.
+    render: (f, plan) =>
       f.providers["identity-verification"]
-        ? "iDenfy + custom"
+        ? plan === "ENTERPRISE"
+          ? "iDenfy + custom"
+          : "iDenfy"
         : "Manual review only",
   },
   {
@@ -138,7 +142,7 @@ export const PlanTab = () => {
             {PLANS.map((plan) => (
               <PlanCell
                 key={plan}
-                value={row.render(getPlanFeatures(plan as Plan))}
+                value={row.render(getPlanFeatures(plan as Plan), plan as Plan)}
                 highlighted={plan === currentPlan}
               />
             ))}

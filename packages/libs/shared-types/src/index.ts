@@ -486,6 +486,99 @@ export type IdentityVerificationSubStepType = z.infer<
   typeof IdentityVerificationSubStepTypeEnum
 >;
 
+// Document types accepted by the ID-scan step. Mirrors the widget's
+// hardcoded picker until per-substep config exposes a subset.
+export const ID_DOCUMENT_TYPES = [
+  "PASSPORT",
+  "ID_CARD",
+  "DRIVER_LICENSE",
+] as const;
+export const IdDocumentTypeEnum = z.enum(ID_DOCUMENT_TYPES);
+export type IdDocumentType = z.infer<typeof IdDocumentTypeEnum>;
+
+export const POR_DOCUMENT_TYPES = [
+  "GAS_BILL",
+  "INTERNET_BILL",
+  "ELECTRICITY_BILL",
+  "RENT_AGREEMENT",
+  "BANK_STATEMENT",
+] as const;
+export const PorDocumentTypeEnum = z.enum(POR_DOCUMENT_TYPES);
+export type PorDocumentType = z.infer<typeof PorDocumentTypeEnum>;
+
+// providerConfig schemas, one per substep type. Stored as JSONB on the
+// substep row. Missing fields => "no restriction"; the widget applies sane
+// defaults when reading.
+export const ID_SCAN_COUNTRY_MODES = [
+  "all",
+  "allowed_only",
+  "blocked",
+] as const;
+export const IdScanCountryModeEnum = z.enum(ID_SCAN_COUNTRY_MODES);
+export type IdScanCountryMode = z.infer<typeof IdScanCountryModeEnum>;
+
+export const IdScanConfigSchema = z.object({
+  // "all": accept any country.
+  // "allowed_only": accept only countries in `countries`.
+  // "blocked": accept any country EXCEPT those in `countries`.
+  // Missing => "all" (treat `countries: [...]` as legacy allowed_only).
+  countryMode: IdScanCountryModeEnum.optional(),
+  countries: z.array(z.string()).nullable().optional(),
+  documentTypes: z.array(IdDocumentTypeEnum).optional(),
+});
+export type IdScanConfig = z.infer<typeof IdScanConfigSchema>;
+
+export const ContactInfoConfigSchema = z.object({
+  fields: z
+    .object({
+      phone: z.boolean(),
+      email: z.boolean(),
+    })
+    .optional(),
+});
+export type ContactInfoConfig = z.infer<typeof ContactInfoConfigSchema>;
+
+export const ProofOfResidenceConfigSchema = z.object({
+  documentTypes: z.array(PorDocumentTypeEnum).optional(),
+});
+export type ProofOfResidenceConfig = z.infer<
+  typeof ProofOfResidenceConfigSchema
+>;
+
+export const TermsAcceptanceConfigSchema = z.object({
+  // null/missing/empty = widget renders its built-in default TOS text.
+  termsText: z.string().nullable().optional(),
+});
+export type TermsAcceptanceConfig = z.infer<typeof TermsAcceptanceConfigSchema>;
+
+// Per-workflow widget branding. Plan-gated on the dashboard side:
+//   STARTER:     all fields locked → widget shows default UserCore branding.
+//   GROWTH:      brandName, logoS3Key, primaryColor editable. PoweredBy stays.
+//   ENTERPRISE:  also hidePoweredBy editable (white-label).
+// Hex-colour validator shared between primary and secondary.
+const HexColorSchema = z
+  .string()
+  .regex(/^#[0-9A-Fa-f]{6}$/, "Must be a #RRGGBB hex colour")
+  .nullable()
+  .optional();
+
+export const WorkflowBrandingSchema = z.object({
+  brandName: z.string().nullable().optional(),
+  logoS3Key: z.string().nullable().optional(),
+  // primaryColor   → main CTA buttons in the widget.
+  // secondaryColor → light accent backgrounds (icon tiles, "Up next" pill,
+  //                  success/info panels). Pick a paler hue than primary.
+  primaryColor: HexColorSchema,
+  secondaryColor: HexColorSchema,
+  hidePoweredBy: z.boolean().optional(),
+  // Custom From address for transactional emails (the OTP). Enterprise-only:
+  // an elderly customer mid-onboarding distrusts a noreply@usercore email
+  // arriving during what they think is a bank flow. Empty/null falls back
+  // to env.SMTP_FROM.
+  senderEmail: z.string().email().nullable().optional(),
+});
+export type WorkflowBranding = z.infer<typeof WorkflowBrandingSchema>;
+
 // Providers that workflows-api dispatches to via providers-api. Stubs without
 // API keys; real client code that 401s without env credentials.
 export const PROVIDER_SHORT_NAMES = [
@@ -575,3 +668,22 @@ export const ProviderCheckCompletedPayload = z.object({
 export type ProviderCheckCompletedPayload = z.infer<
   typeof ProviderCheckCompletedPayload
 >;
+
+// CORS — we accept any localhost variant, any RFC1918 LAN IP, and ngrok /
+// cloudflared tunnel hostnames (HTTPS-only). This lets the dashboard run at
+// the host's LAN IP for mobile QR testing, and tunnels for HTTPS-required
+// flows (face-scan camera) without per-service config churn.
+const DEV_CORS_PATTERNS: RegExp[] = [
+  /^https?:\/\/localhost(:\d+)?$/,
+  /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
+  /^https?:\/\/(192\.168|10|172\.(1[6-9]|2[0-9]|3[01]))\.\d+\.\d+(:\d+)?$/,
+  /^https:\/\/[a-z0-9-]+\.ngrok(-free)?\.(io|app)$/,
+  /^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/,
+];
+
+export const resolveDevCorsOrigin = (
+  origin: string,
+): string | undefined | null => {
+  if (!origin) return undefined;
+  return DEV_CORS_PATTERNS.some((p) => p.test(origin)) ? origin : null;
+};

@@ -43,6 +43,13 @@
       "when": 1779018544563,
       "tag": "0005_terms_acceptance_always_on",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779034734257,
+      "tag": "0006_lumpy_komodo",
+      "breakpoints": true
     }
   ]
 }

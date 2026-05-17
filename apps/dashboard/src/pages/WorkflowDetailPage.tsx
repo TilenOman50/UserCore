@@ -11,6 +11,7 @@ import {
   IdCard,
   Mail,
   Phone,
+  Play,
   Plus,
   ScanFace,
   Search,
@@ -21,9 +22,25 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import type {
+  ContactInfoConfig,
+  IdScanConfig,
+  ProofOfResidenceConfig,
+  TermsAcceptanceConfig,
+} from "@usercore/shared-types";
+
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { LinkScenarioModal } from "../components/scenarios/LinkScenarioModal";
 import { SaveIndicator } from "../components/ui/SaveIndicator";
+import { BrandingSection } from "../components/workflows/BrandingSection";
+import {
+  ContactInfoConfigEditor,
+  IdScanConfigEditor,
+  ProofOfResidenceConfigEditor,
+  TermsAcceptanceConfigEditor,
+} from "../components/workflows/SubStepConfigEditors";
+import { TestFlowModal } from "../components/workflows/TestFlowModal";
+import { COUNTRIES as COUNTRY_LIST } from "../lib/countries";
 import {
   UPGRADE_HINT,
   useCanManageConfig,
@@ -47,6 +64,7 @@ import {
   type WorkflowStep,
   type WorkflowStepType,
 } from "../lib/hooks/useWorkflows";
+import { useStartTestSession } from "../lib/hooks/useWorkflowSessions";
 import { useWorkspace } from "../lib/workspaceContext";
 
 type IconComp = ComponentType<{ size?: number; className?: string }>;
@@ -171,9 +189,12 @@ export const WorkflowDetailPage = () => {
   const remove = useDeleteWorkflow();
   const canEdit = useCanManageConfig();
 
+  const startTestSession = useStartTestSession();
+
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [testSessionId, setTestSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!workflowQuery.data) return;
@@ -297,22 +318,51 @@ export const WorkflowDetailPage = () => {
           </div>
           <div className="flex flex-col items-end gap-2 shrink-0">
             <div className="text-xs text-gray-400 font-mono">{workflow.id}</div>
-            <button
-              type="button"
-              onClick={() => canEdit && setDeleteOpen(true)}
-              disabled={!canEdit}
-              title={
-                !canEdit
-                  ? "Only owners and admins can delete workflows."
-                  : undefined
-              }
-              className="text-sm py-1.5 px-3 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-600 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
-            >
-              Delete
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!workflow.valid || startTestSession.isPending) return;
+                  const session = await startTestSession.mutateAsync(
+                    workflow.id,
+                  );
+                  setTestSessionId(session.id);
+                }}
+                disabled={!workflow.valid || startTestSession.isPending}
+                title={
+                  !workflow.valid
+                    ? "Workflow must be valid to start a test session."
+                    : undefined
+                }
+                className="inline-flex items-center gap-1.5 text-sm py-1.5 px-3 rounded-lg border border-primary-200 bg-primary-50 hover:bg-primary-100 text-primary-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Play size={14} />
+                {startTestSession.isPending ? "Starting…" : "Test the flow"}
+              </button>
+              <button
+                type="button"
+                onClick={() => canEdit && setDeleteOpen(true)}
+                disabled={!canEdit}
+                title={
+                  !canEdit
+                    ? "Only owners and admins can delete workflows."
+                    : undefined
+                }
+                className="text-sm py-1.5 px-3 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-600 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {testSessionId && (
+        <TestFlowModal
+          sessionId={testSessionId}
+          onClose={() => setTestSessionId(null)}
+        />
+      )}
 
       <ConfirmDialog
         open={deleteOpen}
@@ -359,6 +409,12 @@ export const WorkflowDetailPage = () => {
           </div>
         </div>
       )}
+
+      <BrandingSection
+        workflowId={workflow.id}
+        branding={workflow.branding ?? {}}
+        canEdit={canEdit}
+      />
 
       <section>
         <div className="flex items-center justify-between mb-3">
@@ -471,11 +527,15 @@ const StepCard = ({
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-      <button
-        type="button"
+      <div
+        // Outer row is a plain div so the inner Trash button receives clicks
+        // even on steps with no expandable detail (e.g. duplicate-detection,
+        // which used to disable the whole outer <button> and swallow the
+        // remove click).
+        className={`w-full flex items-start gap-4 p-5 text-left ${
+          hasDetail ? "cursor-pointer hover:bg-gray-50" : ""
+        }`}
         onClick={() => hasDetail && setExpanded((v) => !v)}
-        disabled={!hasDetail}
-        className={`w-full flex items-start gap-4 p-5 text-left ${hasDetail ? "hover:bg-gray-50" : ""}`}
       >
         <div className="w-10 h-10 rounded-xl bg-gray-50 border-2 border-gray-200 flex items-center justify-center shrink-0 text-gray-700">
           <Icon size={20} />
@@ -529,7 +589,7 @@ const StepCard = ({
             />
           )}
         </div>
-      </button>
+      </div>
 
       {expanded && type === "identity-verification" && (
         <IdentityVerificationDetail step={step} canEdit={canEdit} />
@@ -739,8 +799,10 @@ const IdentityVerificationDetail = ({
               return (
                 <SubStepCard
                   key={sub.id}
+                  subStepId={sub.id}
                   type={type}
                   enabled={sub.enabled}
+                  providerConfig={sub.providerConfig}
                   canEdit={canEdit}
                   onToggle={(enabled) =>
                     toggleSubStep.mutate({ subStepId: sub.id, enabled })
@@ -884,71 +946,166 @@ const ProviderCard = ({
   );
 };
 
+// Which sub-step types expose configurable settings. Email + face-scan are
+// intentionally excluded — they have nothing meaningful to tune from here.
+const CONFIGURABLE_SUB_STEPS = new Set<IdentityVerificationSubStepType>([
+  "id-scan",
+  "contact-information",
+  "proof-of-residence",
+  "terms-acceptance",
+]);
+
 const SubStepCard = ({
+  subStepId,
   type,
   enabled,
+  providerConfig,
   canEdit,
   onToggle,
 }: {
+  subStepId: string;
   type: IdentityVerificationSubStepType;
   enabled: boolean;
+  providerConfig: unknown;
   canEdit: boolean;
   onToggle: (enabled: boolean) => void;
 }) => {
   const Icon = SUB_STEP_ICONS[type];
   const required = type === "terms-acceptance";
+  const configurable = CONFIGURABLE_SUB_STEPS.has(type);
+  const [expanded, setExpanded] = useState(false);
+
+  // Only let the user expand when the substep is on (or always, for terms,
+  // which is permanently on). A disabled substep has no meaningful settings.
+  const canExpand = configurable && (enabled || required);
 
   return (
     <div
-      className={`flex items-start gap-3 p-4 rounded-xl border bg-white transition-colors ${
+      className={`rounded-xl border bg-white transition-colors ${
         enabled ? "border-gray-200" : "border-dashed border-gray-200 opacity-75"
       }`}
     >
-      <div className="w-10 h-10 rounded-xl bg-gray-50 border-2 border-gray-200 flex items-center justify-center shrink-0 text-gray-700">
-        <Icon size={18} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-sm font-semibold text-gray-900">
-            {SUB_STEP_LABELS[type]}
-          </span>
-          {required && (
-            <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary-100 text-primary-700">
-              Required
+      <div className="flex items-start gap-3 p-4">
+        <div className="w-10 h-10 rounded-xl bg-gray-50 border-2 border-gray-200 flex items-center justify-center shrink-0 text-gray-700">
+          <Icon size={18} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-sm font-semibold text-gray-900">
+              {SUB_STEP_LABELS[type]}
             </span>
-          )}
+          </div>
+          <div className="text-xs text-gray-500 mt-0.5">
+            {SUB_STEP_DESCRIPTIONS[type]}
+          </div>
         </div>
-        <div className="text-xs text-gray-500 mt-0.5">
-          {SUB_STEP_DESCRIPTIONS[type]}
-        </div>
-      </div>
-      {required ? (
-        <span className="text-xs text-gray-400 self-center shrink-0">
-          Always on
-        </span>
-      ) : (
-        <button
-          type="button"
-          role="switch"
-          aria-checked={enabled}
-          disabled={!canEdit}
-          onClick={() => onToggle(!enabled)}
-          title={
-            !canEdit
-              ? "Only owners and admins can change sub-steps."
-              : undefined
-          }
-          className={`relative inline-flex h-5 w-9 shrink-0 self-center items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-200 disabled:cursor-not-allowed disabled:opacity-50 ${
-            enabled ? "bg-primary-500" : "bg-gray-300"
-          }`}
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              enabled ? "translate-x-4" : "translate-x-0.5"
+        {canExpand && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="text-gray-400 hover:text-gray-700 self-center p-1 rounded-md hover:bg-gray-50"
+            aria-label={expanded ? "Hide settings" : "Show settings"}
+          >
+            <ChevronDown
+              size={16}
+              className={`transition-transform ${expanded ? "rotate-180" : ""}`}
+            />
+          </button>
+        )}
+        {required ? (
+          <span className="text-xs text-gray-400 self-center shrink-0">
+            Always on
+          </span>
+        ) : (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={enabled}
+            disabled={!canEdit}
+            onClick={() => onToggle(!enabled)}
+            title={
+              !canEdit
+                ? "Only owners and admins can change sub-steps."
+                : undefined
+            }
+            className={`relative inline-flex h-5 w-9 shrink-0 self-center items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-200 disabled:cursor-not-allowed disabled:opacity-50 ${
+              enabled ? "bg-primary-500" : "bg-gray-300"
             }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                enabled ? "translate-x-4" : "translate-x-0.5"
+              }`}
+            />
+          </button>
+        )}
+      </div>
+
+      {canExpand && expanded && (
+        <div className="border-t border-gray-100 p-4 bg-gray-50/50">
+          <SubStepConfigBody
+            subStepId={subStepId}
+            type={type}
+            providerConfig={providerConfig}
+            canEdit={canEdit}
           />
-        </button>
+        </div>
       )}
     </div>
   );
+};
+
+const SubStepConfigBody = ({
+  subStepId,
+  type,
+  providerConfig,
+  canEdit,
+}: {
+  subStepId: string;
+  type: IdentityVerificationSubStepType;
+  providerConfig: unknown;
+  canEdit: boolean;
+}) => {
+  // The substep stores providerConfig as `unknown` JSON. Each editor narrows
+  // to its own shape; missing/invalid fields fall back to defaults.
+  const config = (providerConfig ?? {}) as Record<string, unknown>;
+
+  if (type === "id-scan") {
+    return (
+      <IdScanConfigEditor
+        subStepId={subStepId}
+        config={config as IdScanConfig}
+        canEdit={canEdit}
+        countries={COUNTRY_LIST}
+      />
+    );
+  }
+  if (type === "contact-information") {
+    return (
+      <ContactInfoConfigEditor
+        subStepId={subStepId}
+        config={config as ContactInfoConfig}
+        canEdit={canEdit}
+      />
+    );
+  }
+  if (type === "proof-of-residence") {
+    return (
+      <ProofOfResidenceConfigEditor
+        subStepId={subStepId}
+        config={config as ProofOfResidenceConfig}
+        canEdit={canEdit}
+      />
+    );
+  }
+  if (type === "terms-acceptance") {
+    return (
+      <TermsAcceptanceConfigEditor
+        subStepId={subStepId}
+        config={config as TermsAcceptanceConfig}
+        canEdit={canEdit}
+      />
+    );
+  }
+  return null;
 };

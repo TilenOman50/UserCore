@@ -18,6 +18,10 @@ const EnvSchema = z.object({
   // Used to look up an organization's plan when enforcing per-org quotas
   // (e.g. the verifications-per-month hard cap on session creation).
   AUTH_API_URL: z.string().default("http://localhost:3001"),
+  // SMTP — points at Mailpit in local dev (port 1025, no auth).
+  SMTP_HOST: z.string().default("localhost"),
+  SMTP_PORT: z.coerce.number().default(1025),
+  SMTP_FROM: z.string().default("noreply@usercore.local"),
 });
 
 export const env = EnvSchema.parse(process.env);

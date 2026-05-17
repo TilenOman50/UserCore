@@ -47,7 +47,22 @@ export const createStorageService = (props: { logger: Logger }) => {
     return getSignedUrl(client, command, { expiresIn: expiresInSeconds });
   };
 
-  return { uploadFile, getSignedDownloadUrl };
+  // Fetch object bytes directly. Used when the consumer can't reach MinIO
+  // directly — e.g. the widget on a phone during a QR handoff, where the
+  // dev-time presigned URL points at localhost:9000.
+  const getObject = async (key: string) => {
+    const res = await client.send(
+      new GetObjectCommand({ Bucket: env.MINIO_BUCKET, Key: key }),
+    );
+    if (!res.Body) return null;
+    const bytes = await res.Body.transformToByteArray();
+    return {
+      body: bytes,
+      contentType: res.ContentType ?? "application/octet-stream",
+    };
+  };
+
+  return { uploadFile, getSignedDownloadUrl, getObject };
 };
 
 export type StorageService = ReturnType<typeof createStorageService>;
