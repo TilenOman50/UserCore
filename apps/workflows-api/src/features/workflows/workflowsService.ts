@@ -1,13 +1,40 @@
 import type { Logger } from "@usercore/logger";
 import type {
+  ProviderShortName,
   WorkflowReason,
   WorkflowStatus,
+  WorkflowStepType,
   WorkflowType,
   WorkflowVerificationMode,
 } from "@usercore/shared-types";
 
 import type { WorkflowStepsRepository } from "../workflowSteps/workflowStepsRepository";
 import type { WorkflowsRepository } from "./workflowsRepository";
+
+// Friendly invalid-step messages for the dashboard's "needs configuration"
+// banner. Each branch covers the specific reason that step type's validity
+// computation flips to false.
+const describeInvalidStep = (
+  type: WorkflowStepType,
+  provider: ProviderShortName | null,
+): string => {
+  switch (type) {
+    case "identity-verification":
+      return "Identity verification has no sub-steps enabled — turn at least one on.";
+    case "aml-screening":
+      return provider === null
+        ? "AML screening needs a provider — choose one to enable the step."
+        : "AML screening configuration is incomplete.";
+    case "fraud-detection":
+      return provider === null
+        ? "Fraud detection needs a provider — choose one to enable the step."
+        : "Fraud detection configuration is incomplete.";
+    case "rules-engine":
+      return "Rules engine has no scenarios linked — link at least one scenario.";
+    case "duplicate-detection":
+      return "Duplicate detection is misconfigured.";
+  }
+};
 
 export const createWorkflowsService = (props: {
   workflowsRepository: WorkflowsRepository;
@@ -83,14 +110,16 @@ export const createWorkflowsService = (props: {
     const reasons: WorkflowReason[] = [];
 
     if (steps.length === 0) {
-      reasons.push({ message: "Workflow has no steps" });
+      reasons.push({
+        message: "Add at least one step to activate this workflow.",
+      });
     }
 
     for (const step of steps) {
       if (!step.valid) {
         reasons.push({
           stepType: step.type,
-          message: `Step '${step.type}' is not valid`,
+          message: describeInvalidStep(step.type, step.provider),
         });
       }
     }

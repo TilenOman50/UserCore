@@ -81,6 +81,10 @@ export const createIdentityVerificationService = (props: {
       data.subStepId,
     );
     if (!subStep) return null;
+    // terms-acceptance is required for every flow; the dashboard hides the
+    // toggle but reject API-level attempts too so the widget can always rely
+    // on it being enabled.
+    if (subStep.type === "terms-acceptance") return subStep;
     // valid mirrors enabled — no extra config required for these sub-steps in
     // the current scope; revisit when per-sub-step provider tuning lands.
     const updated = await identityVerificationRepository.updateSubStep(
@@ -119,8 +123,12 @@ export const createIdentityVerificationService = (props: {
       identityVerificationStepId,
     );
     const enabledSubSteps = subSteps.filter((s) => s.enabled);
-    const valid =
-      enabledSubSteps.length > 0 && enabledSubSteps.every((s) => s.valid);
+    // terms-acceptance is always enabled; we still need at least one real
+    // verification sub-step before considering the step configured.
+    const hasRealSubStep = enabledSubSteps.some(
+      (s) => s.type !== "terms-acceptance",
+    );
+    const valid = hasRealSubStep && enabledSubSteps.every((s) => s.valid);
 
     await workflowStepsRepository.update(ivStep.workflowStepId, { valid });
     const workflowStep = await workflowStepsRepository.findById(
