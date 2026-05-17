@@ -84,6 +84,7 @@ const SessionDetail = ({
 }) => {
   const detail = useWorkflowSession(sessionId);
   const documentFront = useSessionFileUrl(sessionId, "document_front");
+  const documentBack = useSessionFileUrl(sessionId, "document_back");
   const faceVideo = useSessionFileUrl(sessionId, "face_video");
   const proofOfResidence = useSessionFileUrl(sessionId, "proof_of_residence");
   const finalize = useFinalizeSession();
@@ -164,11 +165,26 @@ const SessionDetail = ({
           <h3 className="text-sm font-semibold text-gray-900 mb-3">
             Identity document
           </h3>
-          <img
-            src={documentFront.data.url}
-            alt="Document"
-            className="max-h-72 rounded-lg border border-gray-200"
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Front</div>
+              <img
+                src={documentFront.data.url}
+                alt="Document front"
+                className="max-h-60 w-full rounded-lg border border-gray-200 object-contain bg-gray-50"
+              />
+            </div>
+            {documentBack.data?.url && (
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Back</div>
+                <img
+                  src={documentBack.data.url}
+                  alt="Document back"
+                  className="max-h-60 w-full rounded-lg border border-gray-200 object-contain bg-gray-50"
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
 

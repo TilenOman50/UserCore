@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
 
+import { CountryPicker } from "../components/CountryPicker";
+
 type DocumentStepProps = {
   workflowsApiUrl: string;
   sessionId: string;
@@ -8,6 +10,8 @@ type DocumentStepProps = {
   // does the camera button make sense. Desktop sticks with the file picker.
   showCameraCapture?: boolean;
 };
+
+type Side = "front" | "back";
 
 const CameraIcon = () => (
   <svg
@@ -31,27 +35,73 @@ const DOCUMENT_TYPES = [
   { value: "DRIVER_LICENSE", label: "Driver's licence" },
 ];
 
+const requiresBack = (type: string) =>
+  type === "ID_CARD" || type === "DRIVER_LICENSE";
+
 export const DocumentStep = (props: DocumentStepProps) => {
   const { workflowsApiUrl, sessionId, onComplete, showCameraCapture } = props;
+  const [country, setCountry] = useState("SI");
   const [documentType, setDocumentType] = useState("PASSPORT");
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [files, setFiles] = useState<Record<Side, File | null>>({
+    front: null,
+    back: null,
+  });
+  const [previews, setPreviews] = useState<Record<Side, string | null>>({
+    front: null,
+    back: null,
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const cameraRef = useRef<HTMLInputElement>(null);
+  const frontFileRef = useRef<HTMLInputElement>(null);
+  const frontCameraRef = useRef<HTMLInputElement>(null);
+  const backFileRef = useRef<HTMLInputElement>(null);
+  const backCameraRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (!selected) return;
-    setFile(selected);
-    setPreview(URL.createObjectURL(selected));
+  const setSideFile = (side: Side, selected: File) => {
+    setFiles((prev) => ({ ...prev, [side]: selected }));
+    setPreviews((prev) => ({
+      ...prev,
+      [side]: URL.createObjectURL(selected),
+    }));
+  };
+
+  const onFileChange =
+    (side: Side) => (e: React.ChangeEvent<HTMLInputElement>) => {
+      const selected = e.target.files?.[0];
+      if (selected) setSideFile(side, selected);
+    };
+
+  const needsBack = requiresBack(documentType);
+  const ready = files.front !== null && (!needsBack || files.back !== null);
+
+  const uploadOne = async (
+    file: File,
+    kind: "document_front" | "document_back",
+  ) => {
+    const formData = new FormData();
+    const filename =
+      file.name && file.name.length > 0
+        ? file.name
+        : `${kind}-${Date.now()}.jpg`;
+    formData.append("file", file, filename);
+    const res = await fetch(
+      `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(sessionId)}/files/${kind}`,
+      { method: "POST", body: formData },
+    );
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`Upload failed (${res.status}) ${body}`);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) {
-      setError("Please select a document file");
+    if (!ready) {
+      setError(
+        needsBack && !files.back
+          ? "Please add a photo of the back of the document."
+          : "Please add a photo of the document.",
+      );
       return;
     }
 
@@ -59,23 +109,9 @@ export const DocumentStep = (props: DocumentStepProps) => {
     setError(null);
 
     try {
-      const formData = new FormData();
-      // iOS camera-capture sometimes hands us a File with an empty name, and
-      // server multipart parsers then treat the part as a plain text field
-      // (i.e. formData.get("file") returns the bytes-as-string, not a File).
-      // Forcing a filename keeps the part typed as a file.
-      const filename =
-        file.name && file.name.length > 0
-          ? file.name
-          : `document-${Date.now()}.jpg`;
-      formData.append("file", file, filename);
-      const upload = await fetch(
-        `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(sessionId)}/files/document_front`,
-        { method: "POST", body: formData },
-      );
-      if (!upload.ok) {
-        const body = await upload.text().catch(() => "");
-        throw new Error(`Upload failed (${upload.status}) ${body}`);
+      await uploadOne(files.front!, "document_front");
+      if (needsBack && files.back) {
+        await uploadOne(files.back, "document_back");
       }
 
       const attrRes = await fetch(
@@ -89,6 +125,19 @@ export const DocumentStep = (props: DocumentStepProps) => {
                 attribute: "identity_verification.document_type",
                 value: documentType,
                 attributeType: "STRING",
+              },
+              {
+                attribute: "identity_verification.document_country",
+                value: country,
+                attributeType: "STRING",
+              },
+              // Marker that signals the document step is fully done — used by
+              // the widget's overview to mark id-scan complete even when only
+              // document_front exists from a partial earlier run.
+              {
+                attribute: "identity_verification.document_complete",
+                value: "true",
+                attributeType: "BOOLEAN",
               },
             ],
           }),
@@ -122,6 +171,13 @@ export const DocumentStep = (props: DocumentStepProps) => {
       </div>
 
       <div className="mb-4">
+        <label className="block text-xs font-medium text-gray-700 mb-1.5">
+          Country of issue
+        </label>
+        <CountryPicker value={country} onChange={setCountry} />
+      </div>
+
+      <div className="mb-4">
         <label className="block text-xs font-medium text-gray-700 mb-2">
           Document type
         </label>
@@ -130,7 +186,14 @@ export const DocumentStep = (props: DocumentStepProps) => {
             <button
               key={type.value}
               type="button"
-              onClick={() => setDocumentType(type.value)}
+              onClick={() => {
+                setDocumentType(type.value);
+                // Reset back if user switches to passport.
+                if (!requiresBack(type.value)) {
+                  setFiles((prev) => ({ ...prev, back: null }));
+                  setPreviews((prev) => ({ ...prev, back: null }));
+                }
+              }}
               className={`text-xs font-medium py-2 rounded-lg border transition-colors ${
                 documentType === type.value
                   ? "bg-primary-100 border-primary-300 text-primary-800"
@@ -143,83 +206,73 @@ export const DocumentStep = (props: DocumentStepProps) => {
         </div>
       </div>
 
-      <div
-        onClick={() => fileRef.current?.click()}
-        className="flex-1 min-h-[180px] border-2 border-dashed border-gray-200 hover:border-primary-300 rounded-xl p-4 text-center cursor-pointer transition-colors flex items-center justify-center"
-      >
-        {preview ? (
-          <img
-            src={preview}
-            alt="Document preview"
-            className="max-h-full max-w-full rounded-lg object-contain"
+      <div className="flex-1 space-y-3 overflow-y-auto">
+        <UploadZone
+          label={needsBack ? "Front" : "Photo page"}
+          preview={previews.front}
+          file={files.front}
+          onClick={() => frontFileRef.current?.click()}
+          onCameraClick={
+            showCameraCapture
+              ? () => frontCameraRef.current?.click()
+              : undefined
+          }
+        />
+        {needsBack && (
+          <UploadZone
+            label="Back"
+            preview={previews.back}
+            file={files.back}
+            onClick={() => backFileRef.current?.click()}
+            onCameraClick={
+              showCameraCapture
+                ? () => backCameraRef.current?.click()
+                : undefined
+            }
           />
-        ) : (
-          <div className="text-gray-400">
-            <div className="mx-auto mb-3 w-12 h-12 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-500">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="12" y1="18" x2="12" y2="12" />
-                <line x1="9" y1="15" x2="15" y2="15" />
-              </svg>
-            </div>
-            <p className="text-sm font-medium text-gray-600">
-              Click to upload your document
-            </p>
-            <p className="text-xs mt-1 text-gray-400">JPG or PNG, up to 10MB</p>
-          </div>
         )}
       </div>
 
-      {file && preview && (
-        <p className="text-xs text-gray-500 mt-2 truncate">
-          {file.name} · {(file.size / 1024).toFixed(0)} KB
-        </p>
-      )}
-
-      {showCameraCapture && (
-        <button
-          type="button"
-          onClick={() => cameraRef.current?.click()}
-          className="mt-3 inline-flex items-center justify-center gap-2 py-2 px-3 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700 self-stretch"
-        >
-          <CameraIcon />
-          Take photo with camera
-        </button>
-      )}
-
       <input
-        ref={fileRef}
+        ref={frontFileRef}
         type="file"
         accept="image/*"
-        onChange={handleFileChange}
+        onChange={onFileChange("front")}
+        className="hidden"
+      />
+      <input
+        ref={backFileRef}
+        type="file"
+        accept="image/*"
+        onChange={onFileChange("back")}
         className="hidden"
       />
       {showCameraCapture && (
-        <input
-          ref={cameraRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFileChange}
-          className="hidden"
-        />
+        <>
+          <input
+            ref={frontCameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={onFileChange("front")}
+            className="hidden"
+          />
+          <input
+            ref={backCameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={onFileChange("back")}
+            className="hidden"
+          />
+        </>
       )}
 
       {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
 
       <button
         type="submit"
-        disabled={loading || !file}
+        disabled={loading || !ready}
         className="mt-4 w-full py-3 px-4 bg-primary-200 hover:bg-primary-300 disabled:opacity-50 disabled:cursor-not-allowed text-primary-800 font-semibold rounded-xl transition-colors text-sm"
       >
         {loading ? "Uploading…" : "Continue"}
@@ -227,3 +280,73 @@ export const DocumentStep = (props: DocumentStepProps) => {
     </form>
   );
 };
+
+const UploadZone = ({
+  label,
+  preview,
+  file,
+  onClick,
+  onCameraClick,
+}: {
+  label: string;
+  preview: string | null;
+  file: File | null;
+  onClick: () => void;
+  onCameraClick?: () => void;
+}) => (
+  <div>
+    <div className="flex items-center justify-between mb-1.5">
+      <span className="text-xs font-medium text-gray-700">{label}</span>
+      {file && (
+        <span className="text-xs text-gray-400 truncate max-w-[200px]">
+          {file.name} · {(file.size / 1024).toFixed(0)} KB
+        </span>
+      )}
+    </div>
+    <div
+      onClick={onClick}
+      className="min-h-[120px] border-2 border-dashed border-gray-200 hover:border-primary-300 rounded-xl p-3 text-center cursor-pointer transition-colors flex items-center justify-center"
+    >
+      {preview ? (
+        <img
+          src={preview}
+          alt={`${label} preview`}
+          className="max-h-28 max-w-full rounded-lg object-contain"
+        />
+      ) : (
+        <div className="text-gray-400">
+          <div className="mx-auto mb-2 w-10 h-10 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-500">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+          </div>
+          <p className="text-xs font-medium text-gray-600">Click to upload</p>
+          <p className="text-[10px] mt-0.5 text-gray-400">JPG or PNG</p>
+        </div>
+      )}
+    </div>
+    {onCameraClick && (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onCameraClick();
+        }}
+        className="mt-2 w-full inline-flex items-center justify-center gap-2 py-2 px-3 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700"
+      >
+        <CameraIcon />
+        Take photo
+      </button>
+    )}
+  </div>
+);

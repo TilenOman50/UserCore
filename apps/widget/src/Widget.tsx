@@ -54,7 +54,9 @@ const SUB_STEP_ORDER: SubStepType[] = [
 const COMPLETION_KEYS: Record<SubStepType, string> = {
   "terms-acceptance": "terms_acceptance.accepted",
   "email-verification": "email_verification.email",
-  "id-scan": "identity_verification.document_front_s3_key",
+  // Written by DocumentStep only after both front (and back, when required)
+  // uploads succeed — guarantees a partial upload doesn't mark the step done.
+  "id-scan": "identity_verification.document_complete",
   "face-scan": "identity_verification.liveness_passed",
   "proof-of-residence": "identity_verification.proof_of_residence_s3_key",
   "contact-information": "contact_information.",
