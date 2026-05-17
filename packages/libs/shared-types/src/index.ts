@@ -575,3 +575,22 @@ export const ProviderCheckCompletedPayload = z.object({
 export type ProviderCheckCompletedPayload = z.infer<
   typeof ProviderCheckCompletedPayload
 >;
+
+// CORS — we accept any localhost variant, any RFC1918 LAN IP, and ngrok /
+// cloudflared tunnel hostnames (HTTPS-only). This lets the dashboard run at
+// the host's LAN IP for mobile QR testing, and tunnels for HTTPS-required
+// flows (face-scan camera) without per-service config churn.
+const DEV_CORS_PATTERNS: RegExp[] = [
+  /^https?:\/\/localhost(:\d+)?$/,
+  /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
+  /^https?:\/\/(192\.168|10|172\.(1[6-9]|2[0-9]|3[01]))\.\d+\.\d+(:\d+)?$/,
+  /^https:\/\/[a-z0-9-]+\.ngrok(-free)?\.(io|app)$/,
+  /^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/,
+];
+
+export const resolveDevCorsOrigin = (
+  origin: string,
+): string | undefined | null => {
+  if (!origin) return undefined;
+  return DEV_CORS_PATTERNS.some((p) => p.test(origin)) ? origin : null;
+};

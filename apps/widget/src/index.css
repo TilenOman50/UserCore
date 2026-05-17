@@ -5,3 +5,12 @@
 :root {
   --color-primary: #c0e1d2;
 }
+
+/* When loaded inside a dashboard iframe, the host already provides the
+   backdrop. Use transparent body so only the widget card is visible. When
+   loaded standalone, the host page can set its own background. */
+html,
+body,
+#root {
+  background: transparent;
+}

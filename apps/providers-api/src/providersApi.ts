@@ -5,6 +5,7 @@ import { requestId } from "hono/request-id";
 
 import type { Logger } from "@usercore/logger";
 import type { RabbitMQClient } from "@usercore/rabbitmq";
+import { resolveDevCorsOrigin } from "@usercore/shared-types";
 
 import { env } from "./env";
 import { createComplyAdvantageClient } from "./features/complyAdvantage/complyAdvantageClient";
@@ -53,9 +54,13 @@ export const createProvidersApi = async (props: {
   app.use(
     "*",
     cors({
-      origin: ["http://localhost:3000", "http://localhost:3007"],
+      origin: resolveDevCorsOrigin,
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowHeaders: ["Content-Type", "Authorization"],
+      allowHeaders: [
+        "Content-Type",
+        "Authorization",
+        "ngrok-skip-browser-warning",
+      ],
       credentials: true,
     }),
   );

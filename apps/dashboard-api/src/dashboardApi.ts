@@ -5,6 +5,7 @@ import { cors } from "hono/cors";
 import { requestId } from "hono/request-id";
 
 import type { Logger } from "@usercore/logger";
+import { resolveDevCorsOrigin } from "@usercore/shared-types";
 
 import type { Database } from "./db/db";
 import { DashboardMemberSettingsTable } from "./db/schema.db";
@@ -30,7 +31,7 @@ export const createDashboardApi = (props: { db: Database; logger: Logger }) => {
   app.use(
     "*",
     cors({
-      origin: ["http://localhost:3000"],
+      origin: resolveDevCorsOrigin,
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization"],
       credentials: true,

@@ -5,7 +5,11 @@ import { requestId } from "hono/request-id";
 
 import type { Logger } from "@usercore/logger";
 import type { RabbitMQClient } from "@usercore/rabbitmq";
-import { EVENTS, KycCompletedPayload } from "@usercore/shared-types";
+import {
+  EVENTS,
+  KycCompletedPayload,
+  resolveDevCorsOrigin,
+} from "@usercore/shared-types";
 
 import type { Database } from "./db/db";
 import { createCustomerProfileRepository } from "./features/customerProfile/customerProfileRepository";
@@ -57,7 +61,7 @@ export const createIdentityApi = (props: {
   app.use(
     "*",
     cors({
-      origin: ["http://localhost:3000", "http://localhost:3007"],
+      origin: resolveDevCorsOrigin,
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization"],
       credentials: true,

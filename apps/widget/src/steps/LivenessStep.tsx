@@ -13,7 +13,7 @@ type CheckStatus = "pending" | "passed" | "failed";
 const CHECK_LABELS: Record<Check, string> = {
   face_detected: "Face detected",
   blink_detected: "Blink detected",
-  head_turn: "Turn your head",
+  head_turn: "Head turn",
 };
 
 export const LivenessStep = (props: LivenessStepProps) => {
@@ -90,13 +90,11 @@ export const LivenessStep = (props: LivenessStepProps) => {
         passedChecks.add("face_detected");
         setChecks((prev) => ({ ...prev, face_detected: "passed" }));
 
-        // Simulate blink detection after 2 seconds of face being detected
         if (frameCount > 60) {
           passedChecks.add("blink_detected");
           setChecks((prev) => ({ ...prev, blink_detected: "passed" }));
         }
 
-        // Simulate head turn after 4 seconds
         if (frameCount > 120) {
           passedChecks.add("head_turn");
           setChecks((prev) => ({ ...prev, head_turn: "passed" }));
@@ -104,10 +102,14 @@ export const LivenessStep = (props: LivenessStepProps) => {
       }
 
       if (passedChecks.size === 3) {
-        // All checks passed — stop camera and submit
+        // Snapshot a frame BEFORE stopping the stream — once we kill the
+        // tracks the video element goes blank and toBlob would return null.
+        const snapshot = videoRef.current
+          ? await captureFrame(videoRef.current)
+          : null;
         stream.getTracks().forEach((t) => t.stop());
         setStatus("done");
-        await submitLivenessResult(Array.from(passedChecks));
+        await submitLivenessResult(Array.from(passedChecks), snapshot);
         return;
       }
 
@@ -117,8 +119,23 @@ export const LivenessStep = (props: LivenessStepProps) => {
     requestAnimationFrame(detect);
   };
 
-  const submitLivenessResult = async (passedChecks: string[]) => {
+  const submitLivenessResult = async (
+    passedChecks: string[],
+    snapshot: Blob | null,
+  ) => {
     try {
+      // Upload the captured frame as the selfie. Best-effort — if it fails,
+      // the liveness attributes still go through so the reviewer at least
+      // sees that checks passed (just without the photo).
+      if (snapshot) {
+        const formData = new FormData();
+        formData.append("file", snapshot, `selfie-${Date.now()}.jpg`);
+        await fetch(
+          `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(sessionId)}/files/face_video`,
+          { method: "POST", body: formData },
+        ).catch(() => undefined);
+      }
+
       await fetch(
         `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(sessionId)}/attributes`,
         {
@@ -152,73 +169,94 @@ export const LivenessStep = (props: LivenessStepProps) => {
     }
   };
 
+  // Grab a JPEG of the current video frame for the reviewer.
+  const captureFrame = (video: HTMLVideoElement): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return resolve(null);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.85);
+    });
+  };
+
   const checkEntries = Object.entries(checks) as [Check, CheckStatus][];
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900">Liveness Check</h2>
-        <p className="text-sm text-gray-500 mt-0.5">
-          Follow the instructions to verify you're present
+    <div className="flex flex-col h-full">
+      <div className="mb-4">
+        <h2 className="text-xl font-semibold text-gray-900">Face scan</h2>
+        <p className="text-sm text-gray-500 mt-1">
+          Follow the on-screen instructions so we can confirm you're present.
         </p>
       </div>
 
-      {/* Camera view */}
-      <div className="relative bg-gray-900 rounded-xl overflow-hidden aspect-video">
-        <video
-          ref={videoRef}
-          className="w-full h-full object-cover mirror"
-          muted
-          playsInline
-        />
-        {status === "idle" && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-white text-sm">Camera not started</p>
-          </div>
-        )}
-        {status === "done" && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-            <div className="text-center">
-              <div className="text-4xl mb-2">✅</div>
-              <p className="text-white font-medium">Liveness verified!</p>
+      <div className="flex-1 flex flex-col">
+        <div className="relative bg-gray-900 rounded-2xl overflow-hidden aspect-square shadow-inner">
+          <video
+            ref={videoRef}
+            className="w-full h-full object-cover"
+            style={{ transform: "scaleX(-1)" }}
+            muted
+            playsInline
+          />
+          {status === "idle" && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-900/40">
+              <p className="text-white/80 text-sm">
+                Camera ready — press start below
+              </p>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+          {status === "done" && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+              <div className="text-center">
+                <div className="mx-auto w-12 h-12 rounded-full bg-primary-200 flex items-center justify-center text-primary-800 text-2xl">
+                  ✓
+                </div>
+                <p className="text-white font-medium mt-2">Liveness verified</p>
+              </div>
+            </div>
+          )}
+        </div>
 
-      {/* Checks */}
-      <div className="space-y-2">
-        {checkEntries.map(([check, checkStatus]) => (
-          <div key={check} className="flex items-center gap-3">
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          {checkEntries.map(([check, checkStatus]) => (
             <div
-              className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${
+              key={check}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium ${
                 checkStatus === "passed"
-                  ? "bg-primary-200 text-primary-700"
+                  ? "border-primary-200 bg-primary-50 text-primary-800"
                   : checkStatus === "failed"
-                    ? "bg-red-100 text-red-700"
-                    : "bg-gray-100 text-gray-400"
+                    ? "border-red-200 bg-red-50 text-red-700"
+                    : "border-gray-200 bg-white text-gray-500"
               }`}
             >
-              {checkStatus === "passed"
-                ? "✓"
-                : checkStatus === "failed"
-                  ? "✗"
-                  : "○"}
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  checkStatus === "passed"
+                    ? "bg-primary-500"
+                    : checkStatus === "failed"
+                      ? "bg-red-500"
+                      : "bg-gray-300"
+                }`}
+              />
+              <span className="truncate">{CHECK_LABELS[check]}</span>
             </div>
-            <span className="text-sm text-gray-700">{CHECK_LABELS[check]}</span>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
 
       {status === "idle" && (
         <button
           onClick={startCamera}
           disabled={!faceDetector}
-          className="w-full py-2.5 px-4 bg-primary-200 hover:bg-primary-300 disabled:opacity-50 text-primary-800 font-medium rounded-lg transition-colors text-sm"
+          className="mt-4 w-full py-3 px-4 bg-primary-200 hover:bg-primary-300 disabled:opacity-50 disabled:cursor-not-allowed text-primary-800 font-semibold rounded-xl transition-colors text-sm"
         >
-          {faceDetector ? "Start Camera" : "Loading model..."}
+          {faceDetector ? "Start camera" : "Loading model…"}
         </button>
       )}
     </div>

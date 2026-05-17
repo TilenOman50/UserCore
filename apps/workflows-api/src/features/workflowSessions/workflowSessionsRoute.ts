@@ -16,8 +16,13 @@ import type {
 import type { ContextVariables } from "../../types";
 import {
   PlanLimitExceededError,
+  SESSION_FILE_KINDS,
+  type SessionFileKind,
   type WorkflowSessionsService,
 } from "./workflowSessionsService";
+
+const isFileKind = (value: string): value is SessionFileKind =>
+  (SESSION_FILE_KINDS as readonly string[]).includes(value);
 
 const SessionSchema = z.object({
   id: z.string(),
@@ -106,11 +111,7 @@ export const createWorkflowSessionsRouter = (props: {
   // reviewers fetch this when rendering the document image / face video.
   app.get("/workflow-sessions/:id/files/:kind/url", async (c) => {
     const { id, kind } = c.req.param();
-    if (
-      kind !== "document_front" &&
-      kind !== "document_back" &&
-      kind !== "face_video"
-    ) {
+    if (!isFileKind(kind)) {
       return c.json({ error: "Invalid file kind" }, 400);
     }
     const result = await workflowSessionsService.getSessionFileUrl({
@@ -139,11 +140,7 @@ export const createWorkflowSessionsRouter = (props: {
   // Multipart file upload — stored to MinIO; an EAV attribute holds the key.
   app.post("/workflow-sessions/:id/files/:kind", async (c) => {
     const { id, kind } = c.req.param();
-    if (
-      kind !== "document_front" &&
-      kind !== "document_back" &&
-      kind !== "face_video"
-    ) {
+    if (!isFileKind(kind)) {
       return c.json({ error: "Invalid file kind" }, 400);
     }
     const formData = await c.req.formData();

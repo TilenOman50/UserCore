@@ -1,11 +1,11 @@
 import { useRef, useState } from "react";
 
-type DocumentStepProps = {
+type ProofOfResidenceStepProps = {
   workflowsApiUrl: string;
   sessionId: string;
   onComplete: () => void;
   // True when the widget is loaded on a phone via the handoff QR — only then
-  // does the camera button make sense. Desktop sticks with the file picker.
+  // does the camera button make sense.
   showCameraCapture?: boolean;
 };
 
@@ -25,15 +25,8 @@ const CameraIcon = () => (
   </svg>
 );
 
-const DOCUMENT_TYPES = [
-  { value: "PASSPORT", label: "Passport" },
-  { value: "ID_CARD", label: "National ID" },
-  { value: "DRIVER_LICENSE", label: "Driver's licence" },
-];
-
-export const DocumentStep = (props: DocumentStepProps) => {
+export const ProofOfResidenceStep = (props: ProofOfResidenceStepProps) => {
   const { workflowsApiUrl, sessionId, onComplete, showCameraCapture } = props;
-  const [documentType, setDocumentType] = useState("PASSPORT");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -45,59 +38,36 @@ export const DocumentStep = (props: DocumentStepProps) => {
     const selected = e.target.files?.[0];
     if (!selected) return;
     setFile(selected);
-    setPreview(URL.createObjectURL(selected));
+    setPreview(
+      selected.type.startsWith("image/") ? URL.createObjectURL(selected) : null,
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) {
-      setError("Please select a document file");
+      setError("Please choose a file");
       return;
     }
-
     setLoading(true);
     setError(null);
-
     try {
       const formData = new FormData();
-      // iOS camera-capture sometimes hands us a File with an empty name, and
-      // server multipart parsers then treat the part as a plain text field
-      // (i.e. formData.get("file") returns the bytes-as-string, not a File).
-      // Forcing a filename keeps the part typed as a file.
+      // Force a filename — iOS camera capture sometimes returns a file with
+      // no name and the server multipart parser then drops the part.
       const filename =
         file.name && file.name.length > 0
           ? file.name
-          : `document-${Date.now()}.jpg`;
+          : `proof-${Date.now()}.jpg`;
       formData.append("file", file, filename);
       const upload = await fetch(
-        `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(sessionId)}/files/document_front`,
+        `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(sessionId)}/files/proof_of_residence`,
         { method: "POST", body: formData },
       );
       if (!upload.ok) {
         const body = await upload.text().catch(() => "");
         throw new Error(`Upload failed (${upload.status}) ${body}`);
       }
-
-      const attrRes = await fetch(
-        `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(sessionId)}/attributes`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            attributes: [
-              {
-                attribute: "identity_verification.document_type",
-                value: documentType,
-                attributeType: "STRING",
-              },
-            ],
-          }),
-        },
-      );
-      if (!attrRes.ok) {
-        throw new Error(`Attribute write failed (${attrRes.status})`);
-      }
-
       onComplete();
     } catch (err) {
       setError(
@@ -114,34 +84,28 @@ export const DocumentStep = (props: DocumentStepProps) => {
     <form onSubmit={handleSubmit} className="flex flex-col h-full">
       <div className="mb-4">
         <h2 className="text-xl font-semibold text-gray-900">
-          Identity document
+          Proof of residence
         </h2>
         <p className="text-sm text-gray-500 mt-1">
-          Upload a clear photo of your government-issued ID.
+          A document dated within the last 3 months that shows your name and
+          home address.
         </p>
       </div>
 
-      <div className="mb-4">
-        <label className="block text-xs font-medium text-gray-700 mb-2">
-          Document type
-        </label>
-        <div className="grid grid-cols-3 gap-2">
-          {DOCUMENT_TYPES.map((type) => (
-            <button
-              key={type.value}
-              type="button"
-              onClick={() => setDocumentType(type.value)}
-              className={`text-xs font-medium py-2 rounded-lg border transition-colors ${
-                documentType === type.value
-                  ? "bg-primary-100 border-primary-300 text-primary-800"
-                  : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-              }`}
-            >
-              {type.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <ul className="mb-4 text-xs text-gray-500 space-y-1">
+        <li className="flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary-400" />
+          Utility bill (gas, electricity, water)
+        </li>
+        <li className="flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary-400" />
+          Bank or credit-card statement
+        </li>
+        <li className="flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary-400" />
+          Official government letter
+        </li>
+      </ul>
 
       <div
         onClick={() => fileRef.current?.click()}
@@ -153,8 +117,8 @@ export const DocumentStep = (props: DocumentStepProps) => {
             alt="Document preview"
             className="max-h-full max-w-full rounded-lg object-contain"
           />
-        ) : (
-          <div className="text-gray-400">
+        ) : file ? (
+          <div className="text-gray-600 text-sm">
             <div className="mx-auto mb-3 w-12 h-12 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-500">
               <svg
                 width="24"
@@ -168,23 +132,38 @@ export const DocumentStep = (props: DocumentStepProps) => {
               >
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <polyline points="14 2 14 8 20 8" />
-                <line x1="12" y1="18" x2="12" y2="12" />
-                <line x1="9" y1="15" x2="15" y2="15" />
               </svg>
             </div>
-            <p className="text-sm font-medium text-gray-600">
-              Click to upload your document
+            <p className="font-medium truncate max-w-xs">{file.name}</p>
+            <p className="text-xs text-gray-400 mt-1">
+              {(file.size / 1024).toFixed(0)} KB
             </p>
-            <p className="text-xs mt-1 text-gray-400">JPG or PNG, up to 10MB</p>
+          </div>
+        ) : (
+          <div className="text-gray-400">
+            <div className="mx-auto mb-3 w-12 h-12 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-500">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M3 9.5 12 4l9 5.5" />
+                <path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9" />
+                <path d="M9 22V12h6v10" />
+              </svg>
+            </div>
+            <p className="text-sm font-medium text-gray-600">Click to upload</p>
+            <p className="text-xs mt-1 text-gray-400">
+              JPG, PNG or PDF, up to 10MB
+            </p>
           </div>
         )}
       </div>
-
-      {file && preview && (
-        <p className="text-xs text-gray-500 mt-2 truncate">
-          {file.name} · {(file.size / 1024).toFixed(0)} KB
-        </p>
-      )}
 
       {showCameraCapture && (
         <button
@@ -200,7 +179,7 @@ export const DocumentStep = (props: DocumentStepProps) => {
       <input
         ref={fileRef}
         type="file"
-        accept="image/*"
+        accept="image/*,application/pdf"
         onChange={handleFileChange}
         className="hidden"
       />

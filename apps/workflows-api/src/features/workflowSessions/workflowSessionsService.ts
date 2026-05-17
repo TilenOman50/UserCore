@@ -26,6 +26,14 @@ import type { WorkflowSessionStepsRepository } from "./workflowSessionStepsRepos
 
 export type ReviewDecision = "approved" | "rejected" | "flagged";
 
+export const SESSION_FILE_KINDS = [
+  "document_front",
+  "document_back",
+  "face_video",
+  "proof_of_residence",
+] as const;
+export type SessionFileKind = (typeof SESSION_FILE_KINDS)[number];
+
 const DECISION_TO_KYC_STATUS: Record<ReviewDecision, KycStatus> = {
   approved: "approved",
   rejected: "rejected",
@@ -228,7 +236,7 @@ export const createWorkflowSessionsService = (props: {
   // back to the dashboard reviewer via getSignedDownloadUrl.
   const uploadSessionFile = async (data: {
     workflowSessionId: string;
-    kind: "document_front" | "document_back" | "face_video";
+    kind: SessionFileKind;
     fileBuffer: Buffer;
     mimeType: string;
   }) => {
@@ -253,7 +261,7 @@ export const createWorkflowSessionsService = (props: {
 
   const getSessionFileUrl = async (data: {
     workflowSessionId: string;
-    kind: "document_front" | "document_back" | "face_video";
+    kind: SessionFileKind;
   }) => {
     const attributes =
       await workflowSessionAttributesRepository.findBySessionId(

@@ -17,6 +17,27 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 3007,
+      // Bind on 0.0.0.0 so the widget is reachable from a phone on the same
+      // wifi when the dashboard's "Test the flow" modal shows a QR code.
+      host: true,
+      // Accept the tunnel hostnames so a single ngrok / cloudflared tunnel
+      // can front the widget when testing on mobile.
+      allowedHosts: [
+        ".ngrok-free.app",
+        ".ngrok.app",
+        ".ngrok.io",
+        ".trycloudflare.com",
+      ],
+      // Single-tunnel setup: proxy workflows-api calls through the same
+      // origin as the widget. The phone hits ngrok → laptop's Vite → this
+      // proxy → local workflows-api on :3004. Means you only need one tunnel.
+      proxy: {
+        "/workflows-api": {
+          target: "http://localhost:3004",
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/workflows-api/, ""),
+        },
+      },
     },
     build: isSdk
       ? {

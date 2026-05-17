@@ -6,7 +6,11 @@ import { requestId } from "hono/request-id";
 
 import type { Logger } from "@usercore/logger";
 import type { RabbitMQClient } from "@usercore/rabbitmq";
-import { EVENTS, generateId } from "@usercore/shared-types";
+import {
+  EVENTS,
+  generateId,
+  resolveDevCorsOrigin,
+} from "@usercore/shared-types";
 
 import type { Auth } from "./betterauth";
 import { member, organization, user } from "./db/auth.db";
@@ -69,7 +73,7 @@ export const createAuthApi = (props: {
       .use(
         "*",
         cors({
-          origin: ["http://localhost:3000", "http://localhost:3007"],
+          origin: resolveDevCorsOrigin,
           allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
           allowHeaders: ["Content-Type", "Authorization"],
           credentials: true,

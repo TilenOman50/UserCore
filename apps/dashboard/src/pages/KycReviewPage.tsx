@@ -84,6 +84,8 @@ const SessionDetail = ({
 }) => {
   const detail = useWorkflowSession(sessionId);
   const documentFront = useSessionFileUrl(sessionId, "document_front");
+  const faceVideo = useSessionFileUrl(sessionId, "face_video");
+  const proofOfResidence = useSessionFileUrl(sessionId, "proof_of_residence");
   const finalize = useFinalizeSession();
   const [reason, setReason] = useState("");
 
@@ -160,12 +162,46 @@ const SessionDetail = ({
       {documentFront.data?.url && (
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <h3 className="text-sm font-semibold text-gray-900 mb-3">
-            Uploaded document
+            Identity document
           </h3>
           <img
             src={documentFront.data.url}
             alt="Document"
             className="max-h-72 rounded-lg border border-gray-200"
+          />
+        </div>
+      )}
+
+      {faceVideo.data?.url && (
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Selfie</h3>
+          <img
+            src={faceVideo.data.url}
+            alt="Selfie"
+            className="max-h-72 rounded-lg border border-gray-200"
+          />
+        </div>
+      )}
+
+      {proofOfResidence.data?.url && (
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">
+            Proof of residence
+          </h3>
+          {/* The key only tells us the type via mime when we fetched it. If it
+              renders as an image, great; otherwise fall back to a link. */}
+          <img
+            src={proofOfResidence.data.url}
+            alt="Proof of residence"
+            className="max-h-72 rounded-lg border border-gray-200"
+            onError={(e) => {
+              const target = e.currentTarget;
+              target.style.display = "none";
+              target.insertAdjacentHTML(
+                "afterend",
+                `<a href="${proofOfResidence.data!.url}" target="_blank" rel="noreferrer" class="text-sm text-primary-700 hover:underline">Open uploaded file</a>`,
+              );
+            }}
           />
         </div>
       )}

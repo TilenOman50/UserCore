@@ -11,6 +11,7 @@ import {
   IdCard,
   Mail,
   Phone,
+  Play,
   Plus,
   ScanFace,
   Search,
@@ -24,6 +25,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { LinkScenarioModal } from "../components/scenarios/LinkScenarioModal";
 import { SaveIndicator } from "../components/ui/SaveIndicator";
+import { TestFlowModal } from "../components/workflows/TestFlowModal";
 import {
   UPGRADE_HINT,
   useCanManageConfig,
@@ -47,6 +49,7 @@ import {
   type WorkflowStep,
   type WorkflowStepType,
 } from "../lib/hooks/useWorkflows";
+import { useStartTestSession } from "../lib/hooks/useWorkflowSessions";
 import { useWorkspace } from "../lib/workspaceContext";
 
 type IconComp = ComponentType<{ size?: number; className?: string }>;
@@ -171,9 +174,12 @@ export const WorkflowDetailPage = () => {
   const remove = useDeleteWorkflow();
   const canEdit = useCanManageConfig();
 
+  const startTestSession = useStartTestSession();
+
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [testSessionId, setTestSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!workflowQuery.data) return;
@@ -297,22 +303,51 @@ export const WorkflowDetailPage = () => {
           </div>
           <div className="flex flex-col items-end gap-2 shrink-0">
             <div className="text-xs text-gray-400 font-mono">{workflow.id}</div>
-            <button
-              type="button"
-              onClick={() => canEdit && setDeleteOpen(true)}
-              disabled={!canEdit}
-              title={
-                !canEdit
-                  ? "Only owners and admins can delete workflows."
-                  : undefined
-              }
-              className="text-sm py-1.5 px-3 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-600 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
-            >
-              Delete
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!workflow.valid || startTestSession.isPending) return;
+                  const session = await startTestSession.mutateAsync(
+                    workflow.id,
+                  );
+                  setTestSessionId(session.id);
+                }}
+                disabled={!workflow.valid || startTestSession.isPending}
+                title={
+                  !workflow.valid
+                    ? "Workflow must be valid to start a test session."
+                    : undefined
+                }
+                className="inline-flex items-center gap-1.5 text-sm py-1.5 px-3 rounded-lg border border-primary-200 bg-primary-50 hover:bg-primary-100 text-primary-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Play size={14} />
+                {startTestSession.isPending ? "Starting…" : "Test the flow"}
+              </button>
+              <button
+                type="button"
+                onClick={() => canEdit && setDeleteOpen(true)}
+                disabled={!canEdit}
+                title={
+                  !canEdit
+                    ? "Only owners and admins can delete workflows."
+                    : undefined
+                }
+                className="text-sm py-1.5 px-3 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-600 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {testSessionId && (
+        <TestFlowModal
+          sessionId={testSessionId}
+          onClose={() => setTestSessionId(null)}
+        />
+      )}
 
       <ConfirmDialog
         open={deleteOpen}
