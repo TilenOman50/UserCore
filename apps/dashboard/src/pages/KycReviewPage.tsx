@@ -353,7 +353,7 @@ export const KycReviewPage = () => {
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
-          <thead>
+          <thead className="bg-gray-50">
             <tr className="border-b border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
               <th className="px-4 py-3 w-10">
                 <input
