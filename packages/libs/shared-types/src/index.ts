@@ -27,6 +27,13 @@ export const KYC_STATUSES = [
 export const KycStatusEnum = z.enum(KYC_STATUSES);
 export type KycStatus = z.infer<typeof KycStatusEnum>;
 
+// Customer-level risk classification — shared by scenario actions
+// (set_customer_risk_level) and the customer profile. "Unassessed" is the
+// absence of a value (null), not an enum member.
+export const CUSTOMER_RISK_LEVELS = ["low", "medium", "high"] as const;
+export const CustomerRiskLevelEnum = z.enum(CUSTOMER_RISK_LEVELS);
+export type CustomerRiskLevel = z.infer<typeof CustomerRiskLevelEnum>;
+
 // Pagination schema
 export const PaginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -62,6 +69,14 @@ export const KycCompletedPayload = z.object({
   customerId: z.string(),
   workspaceId: z.string(),
   status: KycStatusEnum,
+  riskLevel: CustomerRiskLevelEnum.optional(),
+  // Identity snapshot from the session so identity-api can populate the
+  // customer profile (a decided customer appears in the customers table).
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  nationality: z.string().optional(),
+  country: z.string().optional(),
   reviewedAt: z.string().datetime(),
   reviewedBy: z.string(),
   reason: z.string().optional(),
@@ -335,10 +350,6 @@ export const CUSTOMER_STATUS_VALUES = [
 ] as const;
 export const CustomerStatusEnum = z.enum(CUSTOMER_STATUS_VALUES);
 export type CustomerStatus = z.infer<typeof CustomerStatusEnum>;
-
-export const CUSTOMER_RISK_LEVELS = ["low", "medium", "high"] as const;
-export const CustomerRiskLevelEnum = z.enum(CUSTOMER_RISK_LEVELS);
-export type CustomerRiskLevel = z.infer<typeof CustomerRiskLevelEnum>;
 
 export const ScenarioActionConfigSchema = z.object({
   type: ScenarioActionTypeEnum,

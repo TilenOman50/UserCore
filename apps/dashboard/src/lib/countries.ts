@@ -2,6 +2,8 @@
 // Intl.DisplayNames. Mirrors the widget-side list so admins configuring an
 // allowlist see the exact same set of countries customers will pick from.
 
+import { COUNTRY_NAME_BY_CODE } from "@usercore/shared-types";
+
 const COUNTRY_CODES = [
   "AD",
   "AE",
@@ -266,3 +268,13 @@ export const COUNTRIES: Array<{ code: string; name: string }> = [
 ]
   .map((code) => ({ code, name: nameFor(code) }))
   .sort((a, b) => a.name.localeCompare(b.name));
+
+// Resolve a country code to an English display name. Handles both alpha-2
+// (manual/widget capture, dashboard list) and alpha-3 (iDenfy) inputs; returns
+// the raw code if unknown.
+export const countryName = (code: string): string => {
+  const c = code.trim().toUpperCase();
+  if (c.length === 3)
+    return (COUNTRY_NAME_BY_CODE as Record<string, string>)[c] ?? c;
+  return COUNTRIES.find((x) => x.code === c)?.name ?? c;
+};

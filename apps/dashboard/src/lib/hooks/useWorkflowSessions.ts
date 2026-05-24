@@ -109,6 +109,8 @@ export type ReviewQueuePage = {
   totalPages: number;
 };
 
+export type ReviewSortField = "createdAt" | "verificationMode" | "reviewStatus";
+
 export type ReviewQueueFilters = {
   workspaceId: string;
   page: number;
@@ -116,6 +118,8 @@ export type ReviewQueueFilters = {
   status?: ReviewQueueFilter;
   mode?: "sandbox" | "production";
   search?: string;
+  sortBy?: ReviewSortField;
+  sortDir?: "asc" | "desc";
 };
 
 export const useReviewQueue = (filters: ReviewQueueFilters) =>
@@ -129,6 +133,8 @@ export const useReviewQueue = (filters: ReviewQueueFilters) =>
       if (filters.status) params.set("status", filters.status);
       if (filters.mode) params.set("mode", filters.mode);
       if (filters.search?.trim()) params.set("search", filters.search.trim());
+      if (filters.sortBy) params.set("sortBy", filters.sortBy);
+      if (filters.sortDir) params.set("sortDir", filters.sortDir);
       return apiFetch<ReviewQueuePage>(
         `${WORKFLOWS_API_URL}/workflows/workflow-sessions/workspace/${encodeURIComponent(filters.workspaceId)}/review-queue?${params.toString()}`,
       );
@@ -144,6 +150,19 @@ export const useWorkflowSessions = (workspaceId: string) =>
         `${WORKFLOWS_API_URL}/workflows/workflow-sessions/workspace/${encodeURIComponent(workspaceId)}`,
       ),
     enabled: !!workspaceId,
+  });
+
+export type WorkspaceVerificationStats = { thisMonth: number; total: number };
+
+// Workspace-scoped verification (session) counts for the overview.
+export const useWorkspaceVerificationStats = (workspaceId: string | null) =>
+  useQuery({
+    queryKey: ["workspace-verification-stats", workspaceId],
+    enabled: !!workspaceId,
+    queryFn: () =>
+      apiFetch<WorkspaceVerificationStats>(
+        `${WORKFLOWS_API_URL}/workflows/workflow-sessions/workspace/${encodeURIComponent(workspaceId!)}/verification-stats`,
+      ),
   });
 
 export const useWorkflowSession = (sessionId: string | null) =>

@@ -49,8 +49,8 @@ export const SettingsLayout = () => {
   const canManageMembers = role === "owner" || role === "admin";
 
   return (
-    <div className="flex h-full">
-      <nav className="w-56 shrink-0 overflow-auto border-r border-gray-200 bg-white p-4">
+    <div className="flex">
+      <nav className="w-56 shrink-0 self-start sticky top-0 h-screen overflow-y-auto border-r border-gray-200 bg-white p-4">
         <div className="px-3 pb-3 text-sm font-bold text-gray-900">
           Settings
         </div>
@@ -84,7 +84,7 @@ export const SettingsLayout = () => {
         </div>
       </nav>
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1">
         <Outlet />
       </div>
     </div>

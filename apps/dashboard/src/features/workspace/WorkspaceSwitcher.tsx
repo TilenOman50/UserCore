@@ -55,9 +55,8 @@ export const WorkspaceSwitcher = () => {
             <div className="text-sm font-semibold text-gray-900 truncate leading-tight">
               {workspace?.name ?? "—"}
             </div>
-            <div className="text-xs text-gray-500 leading-tight truncate flex items-center gap-1.5">
-              <span className="truncate">{organization.name}</span>
-              <PlanBadge plan={organization.plan} />
+            <div className="text-xs text-gray-500 leading-tight truncate">
+              {organization.name}
             </div>
           </div>
           <svg
@@ -141,19 +140,3 @@ export const WorkspaceSwitcher = () => {
     </>
   );
 };
-
-const PLAN_PILL_STYLES: Record<string, string> = {
-  STARTER: "bg-gray-100 text-gray-600 border-gray-200",
-  GROWTH: "bg-primary-100 text-primary-700 border-primary-200",
-  ENTERPRISE: "bg-violet-100 text-violet-700 border-violet-200",
-};
-
-const PlanBadge = ({ plan }: { plan: string }) => (
-  <span
-    className={`inline-flex items-center px-1.5 py-px rounded text-[10px] font-semibold uppercase tracking-wide border shrink-0 ${
-      PLAN_PILL_STYLES[plan] ?? PLAN_PILL_STYLES.STARTER
-    }`}
-  >
-    {plan.toLowerCase()}
-  </span>
-);

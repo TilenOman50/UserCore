@@ -37,6 +37,7 @@ import { ChecksPanel } from "../components/ChecksPanel";
 import { Modal } from "../components/Modal";
 import { Select, type SelectOption } from "../components/ui/Select";
 import { COUNTRIES } from "../lib/countries";
+import { formatDate, formatDateTime } from "../lib/dates";
 import { useMembers } from "../lib/hooks/useMembers";
 import {
   useFinalizeSession,
@@ -175,7 +176,7 @@ const ActivityTimeline = ({ entries }: { entries: TimelineEntry[] }) => (
         <div className="min-w-0 pt-0.5">
           <div className="text-sm font-medium text-gray-900">{e.title}</div>
           <div className="text-xs text-gray-400">
-            {new Date(e.at).toLocaleString()}
+            {formatDateTime(e.at)}
             {e.actor && (
               <>
                 {" · by "}
@@ -1468,7 +1469,7 @@ export const KycReviewDetailPage = () => {
               </div>
             )}
             <div className="text-xs text-gray-500 mt-0.5">
-              Submitted {new Date(session.createdAt).toLocaleString()}
+              Submitted {formatDateTime(session.createdAt)}
             </div>
             <div className="text-xs text-gray-500 mt-0.5">
               Workflow:{" "}
@@ -2906,7 +2907,7 @@ const expiryInfo = (expiry: string): { tone: Tone; text: string } | null => {
 
 const fmtDate = (value: string): string => {
   const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString();
+  return Number.isNaN(d.getTime()) ? value : formatDate(value);
 };
 
 // "RENT_AGREEMENT" → "Rent agreement"
@@ -3038,7 +3039,7 @@ const buildFileMeta = (
   if (file.uploadedAt)
     meta.push({
       label: "Uploaded",
-      value: new Date(file.uploadedAt).toLocaleString(),
+      value: formatDateTime(file.uploadedAt),
     });
   return meta;
 };

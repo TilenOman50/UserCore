@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { Modal } from "../components/Modal";
+import { PlanBadge } from "../components/PlanBadge";
 import { useCanManageConfig, usePlan } from "../lib/hooks/usePlan";
 import {
   useDeleteProviderConfiguration,
@@ -120,7 +121,7 @@ export const ProvidersPage = () => {
             icon={<Shield size={16} />}
             title="Managed by UserCore"
             subtitle="Always connected, no setup required. Calls are billed as part of your plan."
-            pill={!providersAllowed ? <PlanPill plan="Growth" /> : null}
+            pill={!providersAllowed ? <PlanBadge plan="GROWTH" /> : null}
           />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
             {PROVIDERS.map((meta) => (
@@ -136,7 +137,7 @@ export const ProvidersPage = () => {
             icon={<Plug2 size={16} />}
             title="Or connect your own"
             subtitle="Use your own provider account. We'll route every check through your credentials and you'll be billed directly by the provider."
-            pill={!providersAllowed ? <PlanPill plan="Growth" /> : null}
+            pill={!providersAllowed ? <PlanBadge plan="GROWTH" /> : null}
           />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
             {PROVIDERS.map((meta) => (
@@ -155,7 +156,7 @@ export const ProvidersPage = () => {
             icon={<Sparkles size={16} />}
             title="Custom integrations"
             subtitle="Need a provider we don't support yet? Our team will scope and build the integration alongside your workspace."
-            pill={!customAllowed ? <PlanPill plan="Enterprise" /> : null}
+            pill={!customAllowed ? <PlanBadge plan="ENTERPRISE" /> : null}
           />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <CustomProviderCard locked={!customAllowed} canEdit={canEdit} />
@@ -165,21 +166,6 @@ export const ProvidersPage = () => {
     </div>
   );
 };
-
-// Plan-tier badge — points the reviewer at which plan unlocks a section.
-// Same shape as the BrandingSection pill so the chrome stays consistent.
-const PlanPill = ({ plan }: { plan: "Growth" | "Enterprise" }) => (
-  <span
-    className={`inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${
-      plan === "Enterprise"
-        ? "bg-violet-100 text-violet-700"
-        : "bg-blue-100 text-blue-700"
-    }`}
-    title={`Available on the ${plan} plan`}
-  >
-    {plan}
-  </span>
-);
 
 const SectionHeader = ({
   icon,

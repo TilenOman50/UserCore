@@ -3,6 +3,7 @@ import { Check, Copy, KeyRound, Loader2, Plus, Trash2 } from "lucide-react";
 
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Modal } from "../../components/Modal";
+import { formatDate } from "../../lib/dates";
 import {
   useApiKeys,
   useCreateApiKey,
@@ -11,7 +12,7 @@ import {
 } from "../../lib/hooks/useApiKeys";
 import { useWorkspace } from "../../lib/workspaceContext";
 
-const fmtDate = (iso: string) => new Date(iso).toLocaleDateString();
+const fmtDate = formatDate;
 
 export const ApiKeysPage = () => {
   const { workspace, organization, user, role } = useWorkspace();

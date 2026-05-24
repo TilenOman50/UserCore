@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+import { formatDate } from "../lib/dates";
 import {
   UPGRADE_HINT,
   useCanManageConfig,
@@ -194,7 +195,7 @@ const WorkflowRow = ({
       )}
     </td>
     <td className="px-6 py-4 text-sm text-gray-500 text-right">
-      {new Date(workflow.createdAt).toLocaleDateString()}
+      {formatDate(workflow.createdAt)}
     </td>
   </tr>
 );

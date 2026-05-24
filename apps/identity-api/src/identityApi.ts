@@ -43,10 +43,17 @@ export const createIdentityApi = (props: {
     handler: async (payload) => {
       const parsed = KycCompletedPayload.safeParse(payload);
       if (!parsed.success) return;
-      await customerProfileService.updateKycStatus({
+      await customerProfileService.upsertFromKyc({
         customerId: parsed.data.customerId,
+        workspaceId: parsed.data.workspaceId,
         kycStatus: parsed.data.status,
         kycSessionId: parsed.data.workflowSessionId,
+        riskLevel: parsed.data.riskLevel,
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+        dateOfBirth: parsed.data.dateOfBirth,
+        nationality: parsed.data.nationality,
+        country: parsed.data.country,
       });
     },
   });

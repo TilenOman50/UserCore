@@ -1,5 +1,6 @@
 import {
   and,
+  asc,
   count,
   desc,
   eq,
@@ -139,6 +140,8 @@ export const createWorkflowSessionsRepository = (props: {
     status?: ReviewQueueFilter;
     mode?: WorkflowVerificationMode;
     search?: string;
+    sortBy?: "createdAt" | "verificationMode" | "reviewStatus";
+    sortDir?: "asc" | "desc";
   }) => {
     const conditions: SQL[] = [eq(WorkflowTable.workspaceId, data.workspaceId)];
     // Soft-deleted (archived) submissions are hidden everywhere except the
@@ -201,6 +204,23 @@ export const createWorkflowSessionsRepository = (props: {
     }
     const whereClause = and(...conditions);
 
+    // Order by the requested column (defaults to newest first). reviewStatus is
+    // derived, so it sorts on a CASE rank that mirrors the status derivation
+    // below (resubmission → needs_review → in_progress → approved → rejected).
+    const statusRank = sql`CASE
+      WHEN ${WorkflowSessionAttributeTable.value} = 'true' THEN 0
+      WHEN ${WorkflowSessionStepTable.status} = 'REQUIRES_REVIEW' THEN 1
+      WHEN ${WorkflowSessionStepTable.status} = 'SUCCEEDED' THEN 3
+      WHEN ${WorkflowSessionStepTable.status} = 'FAILED' THEN 4
+      ELSE 2 END`;
+    const sortExpr =
+      data.sortBy === "verificationMode"
+        ? WorkflowSessionTable.verificationMode
+        : data.sortBy === "reviewStatus"
+          ? statusRank
+          : WorkflowSessionTable.createdAt;
+    const orderBy = data.sortDir === "asc" ? asc(sortExpr) : desc(sortExpr);
+
     const rows = await db
       .select({
         session: WorkflowSessionTable,
@@ -230,7 +250,7 @@ export const createWorkflowSessionsRepository = (props: {
         ),
       )
       .where(whereClause)
-      .orderBy(desc(WorkflowSessionTable.createdAt))
+      .orderBy(orderBy)
       .limit(data.limit)
       .offset((data.page - 1) * data.limit);
 
@@ -284,6 +304,29 @@ export const createWorkflowSessionsRepository = (props: {
           gte(WorkflowSessionTable.createdAt, startOfMonth),
         ),
       );
+    return rows[0]?.value ?? 0;
+  };
+
+  // Verification (session) counts for a single workspace — powers the overview
+  // cards. `currentMonth` mirrors the org cap window; `total` is all-time.
+  const countForWorkspace = async (
+    workspaceId: string,
+    opts?: { currentMonth?: boolean },
+  ): Promise<number> => {
+    const conditions: SQL[] = [eq(WorkflowTable.workspaceId, workspaceId)];
+    if (opts?.currentMonth) {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      conditions.push(gte(WorkflowSessionTable.createdAt, startOfMonth));
+    }
+    const rows = await db
+      .select({ value: count() })
+      .from(WorkflowSessionTable)
+      .innerJoin(
+        WorkflowTable,
+        eq(WorkflowSessionTable.workflowId, WorkflowTable.id),
+      )
+      .where(and(...conditions));
     return rows[0]?.value ?? 0;
   };
 
@@ -468,6 +511,7 @@ export const createWorkflowSessionsRepository = (props: {
     listByWorkspace,
     listForReviewQueuePaginated,
     countForOrganizationCurrentMonth,
+    countForWorkspace,
     findIdentityMatchRows,
     findRowMetaForSessions,
     insertEvent,
