@@ -1473,7 +1473,7 @@ export const KycReviewDetailPage = () => {
             <div className="text-xs text-gray-500 mt-0.5">
               Workflow:{" "}
               <Link
-                to={`/workflows/${session.workflowId}`}
+                to={`/settings/workflows/${session.workflowId}`}
                 className="text-primary-700 hover:underline font-mono"
               >
                 {session.workflowId}
@@ -1903,7 +1903,7 @@ export const KycReviewDetailPage = () => {
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0">
                             <Link
-                              to={`/scenarios/${ev.scenarioId}`}
+                              to={`/settings/scenarios/${ev.scenarioId}`}
                               className="text-sm font-medium text-primary-700 hover:underline"
                             >
                               {ev.name}

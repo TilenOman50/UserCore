@@ -3,6 +3,7 @@ import { Command } from "cmdk";
 import { useNavigate } from "react-router-dom";
 
 import { navItems } from "../../components/Layout";
+import { settingsNavItems } from "../../components/SettingsLayout";
 import { signOut } from "../../lib/authClient";
 import { useSwitchWorkspace } from "../../lib/hooks/useWorkspaceMutations";
 import { useWorkspace } from "../../lib/workspaceContext";
@@ -77,15 +78,35 @@ export const CommandPalette = () => {
                   heading="Navigate"
                   className="text-xs font-medium text-gray-400 uppercase tracking-wide px-3 py-2"
                 >
-                  {navItems.map((item) => (
-                    <Command.Item
-                      key={item.path}
-                      onSelect={() => go(item.path)}
-                      className="px-3 py-2 rounded-lg text-sm cursor-pointer aria-selected:bg-primary-50 aria-selected:text-primary-800"
-                    >
-                      {item.label}
-                    </Command.Item>
-                  ))}
+                  {navItems
+                    .filter((item) => item.path !== "/settings")
+                    .map((item) => (
+                      <Command.Item
+                        key={item.path}
+                        onSelect={() => go(item.path)}
+                        className="px-3 py-2 rounded-lg text-sm cursor-pointer aria-selected:bg-primary-50 aria-selected:text-primary-800"
+                      >
+                        {item.label}
+                      </Command.Item>
+                    ))}
+                </Command.Group>
+
+                <Command.Group
+                  heading="Settings"
+                  className="text-xs font-medium text-gray-400 uppercase tracking-wide px-3 py-2 mt-2"
+                >
+                  {settingsNavItems
+                    .filter((item) => !item.managersOnly || canManageMembers)
+                    .map((item) => (
+                      <Command.Item
+                        key={item.to}
+                        value={`settings ${item.label}`}
+                        onSelect={() => go(item.to)}
+                        className="px-3 py-2 rounded-lg text-sm cursor-pointer aria-selected:bg-primary-50 aria-selected:text-primary-800"
+                      >
+                        {item.label}
+                      </Command.Item>
+                    ))}
                 </Command.Group>
 
                 <Command.Group

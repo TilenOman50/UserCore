@@ -107,7 +107,7 @@ export const WorkflowsPage = () => {
                   <WorkflowRow
                     key={w.id}
                     workflow={w}
-                    onClick={() => navigate(`/workflows/${w.id}`)}
+                    onClick={() => navigate(`/settings/workflows/${w.id}`)}
                   />
                 ))}
               </tbody>
@@ -131,7 +131,7 @@ export const WorkflowsPage = () => {
           onClose={() => setCreateOpen(false)}
           onCreated={(id) => {
             setCreateOpen(false);
-            navigate(`/workflows/${id}`);
+            navigate(`/settings/workflows/${id}`);
           }}
         />
       )}

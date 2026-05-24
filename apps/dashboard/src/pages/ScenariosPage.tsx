@@ -105,7 +105,7 @@ export const ScenariosPage = () => {
                     key={s.id}
                     scenario={s}
                     linkCount={(linkMap[s.id] ?? []).length}
-                    onClick={() => navigate(`/scenarios/${s.id}`)}
+                    onClick={() => navigate(`/settings/scenarios/${s.id}`)}
                   />
                 ))}
               </tbody>
@@ -150,7 +150,7 @@ export const ScenariosPage = () => {
           onClose={() => setCreateOpen(false)}
           onCreated={(id) => {
             setCreateOpen(false);
-            navigate(`/scenarios/${id}`);
+            navigate(`/settings/scenarios/${id}`);
           }}
         />
       )}
@@ -175,6 +175,9 @@ const ScenarioRow = ({
     >
       <td className="px-6 py-4">
         <div className="text-sm font-medium text-gray-900">{scenario.name}</div>
+        <div className="text-xs text-gray-400 font-mono mt-0.5">
+          {scenario.id}
+        </div>
         {scenario.description && (
           <div className="text-xs text-gray-500 mt-0.5 line-clamp-1">
             {scenario.description}

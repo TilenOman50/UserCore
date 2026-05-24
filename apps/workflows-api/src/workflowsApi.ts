@@ -12,6 +12,9 @@ import { env } from "./env";
 import { createAmlScreeningRepository } from "./features/amlScreening/amlScreeningRepository";
 import { createAmlScreeningRouter } from "./features/amlScreening/amlScreeningRoute";
 import { createAmlScreeningService } from "./features/amlScreening/amlScreeningService";
+import { createApiKeysRepository } from "./features/apiKeys/apiKeysRepository";
+import { createApiKeysRouter } from "./features/apiKeys/apiKeysRoute";
+import { createApiKeysService } from "./features/apiKeys/apiKeysService";
 import { createDuplicateDetectionRepository } from "./features/duplicateDetection/duplicateDetectionRepository";
 import { createDuplicateDetectionRouter } from "./features/duplicateDetection/duplicateDetectionRoute";
 import { createDuplicateDetectionService } from "./features/duplicateDetection/duplicateDetectionService";
@@ -80,6 +83,7 @@ export const createWorkflowsApi = async (props: {
   const rulesEngineRepository = createRulesEngineRepository({ db, logger });
   const providerConfigurationsRepository =
     createProviderConfigurationsRepository({ db });
+  const apiKeysRepository = createApiKeysRepository({ db });
   const identityWidgetRepository = createIdentityWidgetRepository({
     db,
     logger,
@@ -142,6 +146,10 @@ export const createWorkflowsApi = async (props: {
   const identityWidgetService = createIdentityWidgetService({
     identityWidgetRepository,
     storageService,
+    logger,
+  });
+  const apiKeysService = createApiKeysService({
+    repository: apiKeysRepository,
     logger,
   });
   const planClient = createPlanClient({
@@ -216,8 +224,10 @@ export const createWorkflowsApi = async (props: {
   const identityWidgetRouter = createIdentityWidgetRouter({
     identityWidgetService,
   });
+  const apiKeysRouter = createApiKeysRouter({ apiKeysService });
   const workflowSessionsRouter = createWorkflowSessionsRouter({
     workflowSessionsService,
+    apiKeysService,
   });
   const emailVerificationRouter = createEmailVerificationRouter({
     emailVerificationService,
@@ -272,5 +282,6 @@ export const createWorkflowsApi = async (props: {
     .route(BASE_PATH, providerConfigurationsRouter)
     .route(BASE_PATH, identityWidgetRouter)
     .route(BASE_PATH, workflowSessionsRouter)
-    .route(BASE_PATH, emailVerificationRouter);
+    .route(BASE_PATH, emailVerificationRouter)
+    .route(BASE_PATH, apiKeysRouter);
 };

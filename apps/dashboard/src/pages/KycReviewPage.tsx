@@ -354,14 +354,18 @@ export const KycReviewPage = () => {
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
-            <tr className="border-b border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+            <tr className="group border-b border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
               <th className="px-4 py-3 w-10">
                 <input
                   type="checkbox"
                   checked={allOnPageSelected}
                   onChange={toggleAll}
                   aria-label="Select all"
-                  className="h-4 w-4 rounded border-gray-300 accent-primary-500 cursor-pointer align-middle"
+                  className={`h-4 w-4 rounded border-gray-300 accent-primary-500 cursor-pointer align-middle transition-opacity ${
+                    selected.size > 0
+                      ? "opacity-100"
+                      : "opacity-0 group-hover:opacity-100"
+                  }`}
                 />
               </th>
               <th className="px-4 py-3">Customer</th>
@@ -540,7 +544,7 @@ const ReviewRow = ({
   return (
     <tr
       onClick={onClick}
-      className={`h-[60px] cursor-pointer transition-colors ${
+      className={`group h-[60px] cursor-pointer transition-colors ${
         selected ? "bg-primary-50" : "hover:bg-gray-50"
       }`}
     >
@@ -550,7 +554,9 @@ const ReviewRow = ({
           checked={selected}
           onChange={onToggle}
           aria-label={`Select ${row.customerId}`}
-          className="h-4 w-4 rounded border-gray-300 accent-primary-500 cursor-pointer align-middle"
+          className={`h-4 w-4 rounded border-gray-300 accent-primary-500 cursor-pointer align-middle transition-opacity ${
+            selected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          }`}
         />
       </td>
       <td className="px-4 py-3">

@@ -82,7 +82,7 @@ export const LinkScenarioModal = ({
     setCreatingName("");
     setShowCreate(false);
     onClose();
-    navigate(`/scenarios/${scenario.id}`);
+    navigate(`/settings/scenarios/${scenario.id}`);
   };
 
   return (
@@ -199,7 +199,7 @@ export const LinkScenarioModal = ({
                         type="button"
                         onClick={() => {
                           onClose();
-                          navigate(`/scenarios/${s.id}`);
+                          navigate(`/settings/scenarios/${s.id}`);
                         }}
                         className="text-sm font-medium text-gray-900 hover:text-primary-700 truncate text-left"
                       >
