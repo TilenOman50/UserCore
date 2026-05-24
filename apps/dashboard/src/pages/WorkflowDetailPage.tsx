@@ -263,7 +263,7 @@ export const WorkflowDetailPage = () => {
   return (
     <div className="px-8 py-8 max-w-5xl mx-auto">
       <Link
-        to="/workflows"
+        to="/settings/workflows"
         className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 mb-4"
       >
         <ArrowLeft size={16} />
@@ -290,6 +290,7 @@ export const WorkflowDetailPage = () => {
               className="mt-1 w-full text-sm text-gray-500 bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-primary-400 focus:outline-none focus:bg-primary-50/30 px-1 -ml-1 resize-none transition-colors disabled:hover:border-transparent disabled:cursor-not-allowed"
             />
             <div className="mt-2 flex items-center gap-2 text-xs flex-wrap">
+              <span className="font-mono text-gray-400">{workflow.id}</span>
               {workflow.isDefault && (
                 <span className="px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 font-medium">
                   default
@@ -317,7 +318,6 @@ export const WorkflowDetailPage = () => {
             </div>
           </div>
           <div className="flex flex-col items-end gap-2 shrink-0">
-            <div className="text-xs text-gray-400 font-mono">{workflow.id}</div>
             <div className="flex items-center gap-2">
               {(() => {
                 const isLive = workflow.verificationMode === "production";
@@ -422,7 +422,7 @@ export const WorkflowDetailPage = () => {
         busy={remove.isPending}
         onConfirm={async () => {
           await remove.mutateAsync(workflow.id);
-          navigate("/workflows");
+          navigate("/settings/workflows");
         }}
         onCancel={() => setDeleteOpen(false)}
       />
@@ -696,7 +696,7 @@ const RulesEngineDetail = ({
               <div className="flex-1 min-w-0">
                 {scenario ? (
                   <Link
-                    to={`/scenarios/${scenario.id}`}
+                    to={`/settings/scenarios/${scenario.id}`}
                     className="text-sm font-semibold text-gray-900 hover:text-primary-700 truncate block"
                   >
                     {scenario.name}

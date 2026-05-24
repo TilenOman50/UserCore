@@ -12,9 +12,6 @@ export const navItems = [
   { path: "/", label: "Overview" },
   { path: "/customers", label: "Customers" },
   { path: "/kyc-review", label: "KYC Review" },
-  { path: "/workflows", label: "Workflows" },
-  { path: "/scenarios", label: "Scenarios" },
-  { path: "/providers", label: "Providers" },
   { path: "/settings", label: "Settings" },
 ];
 
@@ -46,7 +43,11 @@ export const Layout = () => {
 
         <nav className="flex-1 p-4 space-y-1">
           {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
+            const isActive =
+              item.path === "/"
+                ? location.pathname === "/"
+                : location.pathname === item.path ||
+                  location.pathname.startsWith(`${item.path}/`);
             return (
               <Link
                 key={item.path}
@@ -64,7 +65,11 @@ export const Layout = () => {
         </nav>
 
         <div className="border-t border-gray-200 p-4">
-          <div className="flex items-center gap-3 mb-3">
+          <Link
+            to="/settings/profile"
+            title="Your profile"
+            className="flex items-center gap-3 mb-3 -mx-1.5 px-1.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+          >
             <div className="w-9 h-9 rounded-full bg-primary-200 flex items-center justify-center flex-shrink-0">
               <span className="text-sm font-semibold text-primary-700">
                 {initialsOf(user.name)}
@@ -76,7 +81,7 @@ export const Layout = () => {
               </div>
               <div className="text-xs text-gray-500 truncate">{user.email}</div>
             </div>
-          </div>
+          </Link>
           <button
             type="button"
             onClick={handleSignOut}

@@ -172,13 +172,13 @@ export const ScenarioDetailPage = () => {
 
   const handleDelete = async () => {
     await remove.mutateAsync(s.id);
-    navigate("/scenarios");
+    navigate("/settings/scenarios");
   };
 
   return (
     <div className="px-8 py-8 max-w-5xl mx-auto">
       <Link
-        to="/scenarios"
+        to="/settings/scenarios"
         className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 mb-4"
       >
         <ArrowLeft size={16} />
@@ -204,7 +204,8 @@ export const ScenarioDetailPage = () => {
               disabled={!canEdit}
               className="mt-1 w-full text-sm text-gray-500 bg-transparent border-0 border-b border-transparent hover:border-gray-200 focus:border-primary-400 focus:outline-none focus:bg-primary-50/30 px-1 -ml-1 resize-none transition-colors disabled:hover:border-transparent disabled:cursor-not-allowed"
             />
-            <div className="mt-3 flex items-center gap-2 text-xs">
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+              <span className="font-mono text-gray-400">{s.id}</span>
               <LinkedWorkflowsBadge links={linksQuery.data?.[s.id] ?? []} />
               {canEdit && <SaveIndicator status={saveStatus} />}
             </div>
@@ -303,7 +304,7 @@ const LinkedWorkflowsSection = ({
         {links.map((l) => (
           <Link
             key={l.workflowStepId}
-            to={`/workflows/${l.workflowId}`}
+            to={`/settings/workflows/${l.workflowId}`}
             className="flex items-center justify-between px-5 py-3 text-sm hover:bg-gray-50"
           >
             <span className="text-gray-900 font-medium">{l.workflowName}</span>

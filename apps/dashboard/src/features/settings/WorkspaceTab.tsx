@@ -36,7 +36,7 @@ export const WorkspaceTab = () => {
 
   return (
     <>
-      <div className="max-w-2xl space-y-6">
+      <div className="space-y-6">
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
             Workspace

@@ -15,7 +15,9 @@ import type {
   WorkflowSessionStep,
 } from "../../db/schema.db";
 import type { ContextVariables } from "../../types";
+import type { ApiKeysService } from "../apiKeys/apiKeysService";
 import {
+  ApiKeyWorkspaceMismatchError,
   PlanLimitExceededError,
   SESSION_FILE_KINDS,
   type SessionFileKind,
@@ -151,8 +153,9 @@ const serializeEvent = (e: WorkflowSessionEvent) => ({
 
 export const createWorkflowSessionsRouter = (props: {
   workflowSessionsService: WorkflowSessionsService;
+  apiKeysService: ApiKeysService;
 }) => {
-  const { workflowSessionsService } = props;
+  const { workflowSessionsService, apiKeysService } = props;
 
   const app = new OpenAPIHono<{ Variables: ContextVariables }>();
 
@@ -249,25 +252,50 @@ export const createWorkflowSessionsRouter = (props: {
             content: { "application/json": { schema: SessionSchema } },
             description: "Created or existing",
           },
+          401: {
+            content: { "application/json": { schema: ErrorSchema } },
+            description: "Invalid or revoked API key",
+          },
           403: {
             content: {
               "application/json": {
-                schema: z.object({
-                  error: z.string(),
-                  code: z.literal("plan_limit_exceeded"),
-                  used: z.number(),
-                  max: z.number(),
-                }),
+                schema: z.union([
+                  z.object({
+                    error: z.string(),
+                    code: z.literal("plan_limit_exceeded"),
+                    used: z.number(),
+                    max: z.number(),
+                  }),
+                  ErrorSchema,
+                ]),
               },
             },
-            description: "Plan quota exhausted",
+            description: "Plan quota exhausted, or API key not authorized",
           },
         },
       }),
       async (c) => {
         const body = c.req.valid("json");
+
+        // Optional API-key auth: a customer's backend creates sessions with a
+        // Bearer key instead of a dashboard login. When present it must be
+        // valid and is scoped to its workspace; absent = current open behavior
+        // (so the dashboard "Test the flow" keeps working).
+        const authHeader = c.req.header("Authorization");
+        let authorizedWorkspaceId: string | undefined;
+        if (authHeader?.startsWith("Bearer ")) {
+          const key = await apiKeysService.verify(authHeader.slice(7));
+          if (!key) {
+            return c.json({ error: "Invalid or revoked API key" }, 401);
+          }
+          authorizedWorkspaceId = key.workspaceId;
+        }
+
         try {
-          const session = await workflowSessionsService.createSession(body);
+          const session = await workflowSessionsService.createSession({
+            ...body,
+            authorizedWorkspaceId,
+          });
           return c.json(serializeSession(session!), 201);
         } catch (err) {
           if (err instanceof PlanLimitExceededError) {
@@ -280,6 +308,9 @@ export const createWorkflowSessionsRouter = (props: {
               },
               403,
             );
+          }
+          if (err instanceof ApiKeyWorkspaceMismatchError) {
+            return c.json({ error: err.message }, 403);
           }
           throw err;
         }

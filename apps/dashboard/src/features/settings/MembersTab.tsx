@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Plus } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -112,26 +113,34 @@ export const MembersTab = () => {
   const [accessTarget, setAccessTarget] = useState<Member | null>(null);
   const [removeTarget, setRemoveTarget] = useState<Member | null>(null);
 
-  if (isPending) {
-    return <div className="text-sm text-gray-500">Loading members…</div>;
-  }
-
-  if (error) {
-    return (
-      <div className="text-sm text-red-600">
-        Failed to load members: {error.message}
-      </div>
-    );
-  }
-
   const workspaceOptions: DropdownOption[] = [
     { value: "", label: "All workspaces" },
     ...workspaces.map((w) => ({ value: w.id, label: w.name })),
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+    <div>
+      {/* Header — title + invite, mirrors the API keys page */}
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Members</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Invite teammates and manage their access.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => !memberLimitReached && setInviteOpen(true)}
+          disabled={memberLimitReached}
+          title={memberLimitReached ? UPGRADE_HINT : undefined}
+          className="inline-flex shrink-0 items-center gap-1.5 py-2 px-4 bg-primary-200 hover:bg-primary-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary-200 text-primary-800 font-medium rounded-lg text-sm"
+        >
+          <Plus size={16} /> Invite member
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <input
           type="search"
           value={searchInput}
@@ -168,139 +177,142 @@ export const MembersTab = () => {
             Clear
           </button>
         )}
-
-        <button
-          type="button"
-          onClick={() => !memberLimitReached && setInviteOpen(true)}
-          disabled={memberLimitReached}
-          title={memberLimitReached ? UPGRADE_HINT : undefined}
-          className="ml-auto py-2 px-4 bg-primary-200 hover:bg-primary-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary-200 text-primary-800 font-medium rounded-lg transition-colors text-sm"
-        >
-          Invite member
-        </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Role</th>
-              <th className="px-4 py-3">Workspaces</th>
-              <th className="px-4 py-3 w-24"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {data.items.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="px-4 py-8 text-center text-sm text-gray-500"
-                >
-                  {hasAnyFilter
-                    ? "No members match these filters."
-                    : "No members yet."}
-                </td>
-              </tr>
-            ) : (
-              data.items.map((m) => {
-                const isSelf = m.userId === user.id;
-                const targetIsOwner = m.role === "owner";
-                const canEditRow = !isSelf && (isOwner || !targetIsOwner);
-                const baseOptions = isOwner ? ALL_ROLES : NON_OWNER_ROLES;
-                const roleOptions = baseOptions.includes(m.role as Role)
-                  ? baseOptions
-                  : ([m.role as Role, ...baseOptions] as Role[]);
-                const isOrgManager = m.role === "owner" || m.role === "admin";
-
-                return (
-                  <tr key={m.memberId}>
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      {m.userName}
-                      {isSelf && (
-                        <span className="ml-2 text-xs text-gray-400">
-                          (you)
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{m.userEmail}</td>
-                    <td className="px-4 py-3">
-                      {m.emailVerified ? (
-                        <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                          Active
-                        </span>
-                      ) : (
-                        <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800">
-                          Pending
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Dropdown
-                        value={m.role}
-                        size="sm"
-                        className="w-28"
-                        disabled={!canEditRow || updateRole.isPending}
-                        options={roleOptions.map((r) => ({
-                          value: r,
-                          label: r.charAt(0).toUpperCase() + r.slice(1),
-                        }))}
-                        onChange={(v) =>
-                          updateRole.mutate({
-                            memberId: m.memberId,
-                            role: v as Role,
-                          })
-                        }
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      {isOrgManager ? (
-                        <span className="text-xs text-gray-500 italic">
-                          All workspaces
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setAccessTarget(m)}
-                          className="text-xs text-primary-700 hover:text-primary-900 underline"
-                        >
-                          {m.workspaceAccess.length} of {workspaces.length}{" "}
-                          workspace{workspaces.length === 1 ? "" : "s"}
-                        </button>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {canEditRow && (
-                        <button
-                          type="button"
-                          onClick={() => setRemoveTarget(m)}
-                          disabled={removeMember.isPending}
-                          className="text-xs text-red-600 hover:text-red-800 disabled:opacity-50"
-                        >
-                          Remove
-                        </button>
-                      )}
+      {isPending ? (
+        <div className="text-sm text-gray-500">Loading members…</div>
+      ) : error ? (
+        <div className="text-sm text-red-600">
+          Failed to load members: {error.message}
+        </div>
+      ) : !data ? null : (
+        <div className="space-y-4">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Role</th>
+                  <th className="px-4 py-3">Workspaces</th>
+                  <th className="px-4 py-3 w-24"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {data.items.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-4 py-8 text-center text-sm text-gray-500"
+                    >
+                      {hasAnyFilter
+                        ? "No members match these filters."
+                        : "No members yet."}
                     </td>
                   </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                ) : (
+                  data.items.map((m) => {
+                    const isSelf = m.userId === user.id;
+                    const targetIsOwner = m.role === "owner";
+                    const canEditRow = !isSelf && (isOwner || !targetIsOwner);
+                    const baseOptions = isOwner ? ALL_ROLES : NON_OWNER_ROLES;
+                    const roleOptions = baseOptions.includes(m.role as Role)
+                      ? baseOptions
+                      : ([m.role as Role, ...baseOptions] as Role[]);
+                    const isOrgManager =
+                      m.role === "owner" || m.role === "admin";
 
-      <Pagination
-        page={data.page}
-        totalPages={data.totalPages}
-        total={data.total}
-        onPageChange={(p) => updateParam("page", String(p))}
-      />
+                    return (
+                      <tr key={m.memberId}>
+                        <td className="px-4 py-3 font-medium text-gray-900">
+                          {m.userName}
+                          {isSelf && (
+                            <span className="ml-2 text-xs text-gray-400">
+                              (you)
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">
+                          {m.userEmail}
+                        </td>
+                        <td className="px-4 py-3">
+                          {m.emailVerified ? (
+                            <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800">
+                              Pending
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Dropdown
+                            value={m.role}
+                            size="sm"
+                            className="w-28"
+                            disabled={!canEditRow || updateRole.isPending}
+                            options={roleOptions.map((r) => ({
+                              value: r,
+                              label: r.charAt(0).toUpperCase() + r.slice(1),
+                            }))}
+                            onChange={(v) =>
+                              updateRole.mutate({
+                                memberId: m.memberId,
+                                role: v as Role,
+                              })
+                            }
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          {isOrgManager ? (
+                            <span className="text-xs text-gray-500 italic">
+                              All workspaces
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setAccessTarget(m)}
+                              className="text-xs text-primary-700 hover:text-primary-900 underline"
+                            >
+                              {m.workspaceAccess.length} of {workspaces.length}{" "}
+                              workspace{workspaces.length === 1 ? "" : "s"}
+                            </button>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {canEditRow && (
+                            <button
+                              type="button"
+                              onClick={() => setRemoveTarget(m)}
+                              disabled={removeMember.isPending}
+                              className="text-xs text-red-600 hover:text-red-800 disabled:opacity-50"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
 
-      {(updateRole.error || removeMember.error) && (
-        <div className="text-sm text-red-600">
-          {updateRole.error?.message ?? removeMember.error?.message}
+          <Pagination
+            page={data.page}
+            totalPages={data.totalPages}
+            total={data.total}
+            onPageChange={(p) => updateParam("page", String(p))}
+          />
+
+          {(updateRole.error || removeMember.error) && (
+            <div className="text-sm text-red-600">
+              {updateRole.error?.message ?? removeMember.error?.message}
+            </div>
+          )}
         </div>
       )}
 
@@ -327,8 +339,8 @@ export const MembersTab = () => {
           <>
             <p>
               This permanently deletes{" "}
-              <strong>{removeTarget?.userEmail}</strong>'s account, removing
-              them from this organization and revoking access to every
+              <strong>{removeTarget?.userEmail}</strong>&apos;s account,
+              removing them from this organization and revoking access to every
               workspace.
             </p>
             <p className="mt-2 text-xs text-gray-500">This cannot be undone.</p>

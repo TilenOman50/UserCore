@@ -449,6 +449,36 @@ export const ProviderConfigurationTable = pgTable(
   }),
 );
 
+// API keys — the secret credential a customer's backend uses to create
+// verification sessions programmatically (the SDK integration path). The raw
+// key is shown once on creation and never stored; only its SHA-256 hash lives
+// here. Scoped to a workspace so a key can only act on its own workflows.
+export const ApiKeyTable = pgTable(
+  "api_key",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => generateId("apikey")),
+    workspaceId: text("workspace_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    // Human label so operators can tell keys apart ("Production backend").
+    name: text("name").notNull(),
+    // Shown in the dashboard (e.g. "uc_a1b2c3d4…"); the raw key is never stored.
+    keyPrefix: text("key_prefix").notNull(),
+    // SHA-256 of the raw key — looked up on every key-authenticated request.
+    keyHash: text("key_hash").notNull(),
+    lastUsedAt: timestamp("last_used_at"),
+    revokedAt: timestamp("revoked_at"),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    keyHashIdx: uniqueIndex("api_key_hash_idx").on(table.keyHash),
+    workspaceIdx: index("api_key_workspace_idx").on(table.workspaceId),
+  }),
+);
+
 export type Workflow = typeof WorkflowTable.$inferSelect;
 export type NewWorkflow = typeof WorkflowTable.$inferInsert;
 export type WorkflowStep = typeof WorkflowStepTable.$inferSelect;
@@ -476,3 +506,5 @@ export type ProviderConfiguration =
   typeof ProviderConfigurationTable.$inferSelect;
 export type NewProviderConfiguration =
   typeof ProviderConfigurationTable.$inferInsert;
+export type ApiKey = typeof ApiKeyTable.$inferSelect;
+export type NewApiKey = typeof ApiKeyTable.$inferInsert;

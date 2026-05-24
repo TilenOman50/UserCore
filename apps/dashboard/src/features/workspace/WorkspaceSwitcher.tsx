@@ -34,7 +34,7 @@ export const WorkspaceSwitcher = () => {
     setOpen(false);
     if (workspaceId === workspace?.id) return;
     await switchWorkspace.mutateAsync(workspaceId);
-    // Routes like /workflows/:id and /scenarios/:id belong to the previous
+    // Detail routes like /settings/workflows/:id belong to the previous
     // workspace — drop the user back at overview to avoid 404s.
     navigate("/");
   };

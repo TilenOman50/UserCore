@@ -196,6 +196,15 @@ export class PlanLimitExceededError extends Error {
   }
 }
 
+// Thrown when a request authenticated with an API key targets a workflow that
+// belongs to a different workspace than the key.
+export class ApiKeyWorkspaceMismatchError extends Error {
+  constructor() {
+    super("API key is not authorized for this workflow's workspace");
+    this.name = "ApiKeyWorkspaceMismatchError";
+  }
+}
+
 export const createWorkflowSessionsService = (props: {
   workflowSessionsRepository: WorkflowSessionsRepository;
   workflowSessionStepsRepository: WorkflowSessionStepsRepository;
@@ -237,6 +246,9 @@ export const createWorkflowSessionsService = (props: {
     customerId: string;
     verificationMode?: WorkflowVerificationMode;
     activeDeviceId?: string;
+    // Set when the request is authenticated with an API key — the target
+    // workflow must belong to this workspace (else the key is rejected).
+    authorizedWorkspaceId?: string;
   }) => {
     // The workflow's Live/Sandbox toggle is the source of truth for the mode —
     // a session inherits it unless the caller explicitly overrides (e.g. a
@@ -244,6 +256,12 @@ export const createWorkflowSessionsService = (props: {
     const workflow = await workflowsRepository.findById(data.workflowId);
     if (!workflow) {
       throw new Error(`Workflow ${data.workflowId} not found`);
+    }
+    if (
+      data.authorizedWorkspaceId &&
+      workflow.workspaceId !== data.authorizedWorkspaceId
+    ) {
+      throw new ApiKeyWorkspaceMismatchError();
     }
     const verificationMode = data.verificationMode ?? workflow.verificationMode;
     const existing = await workflowSessionsRepository.findByExternalSession({
@@ -279,7 +297,15 @@ export const createWorkflowSessionsService = (props: {
       workflowId: data.workflowId,
       customerId: data.customerId,
     });
-    return workflowSessionsRepository.create({ ...data, verificationMode });
+    // Explicit fields — authorizedWorkspaceId is an auth concern, not a column.
+    return workflowSessionsRepository.create({
+      externalSessionId: data.externalSessionId,
+      externalSessionSource: data.externalSessionSource,
+      workflowId: data.workflowId,
+      customerId: data.customerId,
+      activeDeviceId: data.activeDeviceId,
+      verificationMode,
+    });
   };
 
   const getMonthlyVerificationStats = async (organizationId: string) => {

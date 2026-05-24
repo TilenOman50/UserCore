@@ -149,7 +149,7 @@ const ModeCard = ({
           <p className="text-xs text-gray-400 mt-2">
             Add credentials in{" "}
             <Link
-              to="/providers"
+              to="/settings/providers"
               className="text-primary-700 hover:text-primary-800 font-medium"
             >
               Providers
