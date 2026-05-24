@@ -1,354 +1,600 @@
-import { useEffect, useMemo, useState } from "react";
-
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import {
-  useFinalizeSession,
-  useSessionFileUrl,
-  useWorkflowSession,
-  useWorkflowSessions,
-  type ReviewDecision,
+  AlertTriangle,
+  Archive,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  FlaskConical,
+  Radio,
+  RefreshCw,
+  RotateCcw,
+  Search,
+  X,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+import { Modal } from "../components/Modal";
+import { COUNTRIES } from "../lib/countries";
+import { usePreferences } from "../lib/hooks/usePreferences";
+import {
+  useArchiveSession,
+  useReviewQueue,
+  type ReviewQueueFilter,
+  type ReviewQueueRow,
+  type ReviewQueueStatus,
 } from "../lib/hooks/useWorkflowSessions";
 import { useWorkspace } from "../lib/workspaceContext";
+
+const PAGE_SIZE = 20;
+
+type StatusFilter = ReviewQueueFilter;
+type ModeFilter = "all" | "sandbox" | "production";
+
+// The review page is a work inbox — only OPEN submissions live here. Approved /
+// rejected / archived records belong on the Customers page, not this queue.
+const STATUS_FILTERS: Array<{
+  value: StatusFilter;
+  label: string;
+  icon: ReactNode;
+  activeCls: string;
+}> = [
+  {
+    value: "needs_review",
+    label: "Needs review",
+    icon: <AlertTriangle size={13} />,
+    activeCls: "bg-yellow-100 text-yellow-700",
+  },
+  {
+    value: "resubmission",
+    label: "Resubmission",
+    icon: <RotateCcw size={13} />,
+    activeCls: "bg-orange-100 text-orange-700",
+  },
+  {
+    value: "in_progress",
+    label: "In progress",
+    icon: <Clock size={13} />,
+    activeCls: "bg-gray-100 text-gray-500",
+  },
+];
+
+const STATUS_BADGE: Record<
+  ReviewQueueStatus,
+  { cls: string; icon: ReactNode; label: string }
+> = {
+  needs_review: {
+    cls: "bg-yellow-100 text-yellow-700",
+    icon: <AlertTriangle size={12} />,
+    label: "Needs review",
+  },
+  resubmission: {
+    cls: "bg-orange-100 text-orange-700",
+    icon: <RotateCcw size={12} />,
+    label: "Resubmission",
+  },
+  in_progress: {
+    cls: "bg-gray-100 text-gray-500",
+    icon: <Clock size={12} />,
+    label: "In progress",
+  },
+  approved: {
+    cls: "bg-primary-100 text-primary-700",
+    icon: <Check size={12} />,
+    label: "Approved",
+  },
+  rejected: {
+    cls: "bg-red-100 text-red-700",
+    icon: <X size={12} />,
+    label: "Rejected",
+  },
+};
 
 export const KycReviewPage = () => {
   const { workspace, user } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
+  const navigate = useNavigate();
+  const archiveSession = useArchiveSession();
+  const { preferences, setPreference, loaded: prefsLoaded } = usePreferences();
 
-  const sessionsQuery = useWorkflowSessions(workspaceId);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Restore persisted filters — cross-device via dashboard-api, instant via the
+  // localStorage cache. Each value is validated against the current options so a
+  // stale saved value (e.g. a removed chip) falls back to the default. Page is
+  // intentionally NOT persisted — always start at page 1.
+  const savedFilters = (preferences.reviewQueue ?? {}) as {
+    status?: string;
+    mode?: string;
+    search?: string;
+  };
+  const [page, setPage] = useState(1);
+  const [status, setStatus] = useState<StatusFilter>(() =>
+    STATUS_FILTERS.some((f) => f.value === savedFilters.status)
+      ? (savedFilters.status as StatusFilter)
+      : "needs_review",
+  );
+  const [mode, setMode] = useState<ModeFilter>(() =>
+    savedFilters.mode === "sandbox" || savedFilters.mode === "production"
+      ? savedFilters.mode
+      : "all",
+  );
+  const [searchInput, setSearchInput] = useState(savedFilters.search ?? "");
+  const [search, setSearch] = useState(savedFilters.search ?? "");
+
+  // Persist the current filter triple; the hook debounces the server write and
+  // updates the localStorage cache immediately. `touched` blocks a late server
+  // hydration from clobbering a change the member just made.
+  const touchedRef = useRef(false);
+  const persistFilters = (next: {
+    status: StatusFilter;
+    mode: ModeFilter;
+    search: string;
+  }) => {
+    touchedRef.current = true;
+    setPreference("reviewQueue", next);
+  };
+
+  // Hydrate from the SERVER once it loads — covers a cleared localStorage cache
+  // or a different device, where the synchronous init above had nothing to read.
+  // Runs once, and never overrides a filter the member already changed.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (!prefsLoaded || hydratedRef.current || touchedRef.current) return;
+    hydratedRef.current = true;
+    const rq = preferences.reviewQueue;
+    if (!rq) return;
+    if (rq.status && STATUS_FILTERS.some((f) => f.value === rq.status)) {
+      setStatus(rq.status as StatusFilter);
+    }
+    if (
+      rq.mode === "all" ||
+      rq.mode === "sandbox" ||
+      rq.mode === "production"
+    ) {
+      setMode(rq.mode);
+    }
+    if (typeof rq.search === "string") {
+      setSearch(rq.search);
+      setSearchInput(rq.search);
+    }
+  }, [prefsLoaded, preferences]);
+
+  // Multi-select for bulk archive. Cleared whenever the visible set changes so
+  // you can never archive a row you can't currently see.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archiveReason, setArchiveReason] = useState("");
+
+  const query = useReviewQueue({
+    workspaceId,
+    page,
+    limit: PAGE_SIZE,
+    status,
+    mode: mode === "all" ? undefined : mode,
+    search: search || undefined,
+  });
+
+  const data = query.data;
+  const rows = data?.items ?? [];
+  const totalPages = data?.totalPages ?? 1;
+
+  useEffect(() => {
+    setSelected(new Set());
+  }, [page, status, mode, search]);
+
+  const resetToFirstPage = () => setPage(1);
+
+  const submitSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const term = searchInput.trim();
+    setSearch(term);
+    resetToFirstPage();
+    persistFilters({ status, mode, search: term });
+  };
+
+  const clearSearch = () => {
+    setSearchInput("");
+    setSearch("");
+    resetToFirstPage();
+    persistFilters({ status, mode, search: "" });
+  };
+
+  const toggleRow = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const allOnPageSelected =
+    rows.length > 0 && rows.every((r) => selected.has(r.id));
+
+  const toggleAll = () =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allOnPageSelected) rows.forEach((r) => next.delete(r.id));
+      else rows.forEach((r) => next.add(r.id));
+      return next;
+    });
+
+  const handleBulkArchive = async () => {
+    if (archiveReason.trim() === "" || selected.size === 0) return;
+    const ids = Array.from(selected);
+    await Promise.all(
+      ids.map((id) =>
+        archiveSession.mutateAsync({
+          sessionId: id,
+          reviewedBy: user.id,
+          reason: archiveReason.trim(),
+        }),
+      ),
+    );
+    setSelected(new Set());
+    setArchiveReason("");
+    setArchiveOpen(false);
+  };
 
   return (
     <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">KYC Review</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Manually review verification submissions.
-        </p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">KYC Review</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Review verification submissions, enter ID data, run checks, and
+            decide.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => query.refetch()}
+          className="inline-flex items-center gap-1.5 text-sm py-2 px-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
+        >
+          <RefreshCw size={14} /> Refresh
+        </button>
       </div>
 
-      <div className="grid grid-cols-12 gap-6">
-        <aside className="col-span-4 bg-white border border-gray-200 rounded-xl divide-y divide-gray-100 max-h-[70vh] overflow-y-auto">
-          {sessionsQuery.isLoading && (
-            <div className="px-4 py-6 text-sm text-gray-500">Loading…</div>
-          )}
-          {sessionsQuery.data?.length === 0 && (
-            <div className="px-4 py-6 text-sm text-gray-500">
-              No verification submissions yet.
-            </div>
-          )}
-          {sessionsQuery.data?.map((s) => (
+      {/* Filters */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="inline-flex rounded-lg border border-gray-200 bg-white overflow-hidden">
+          {STATUS_FILTERS.map((f) => (
             <button
-              key={s.id}
+              key={f.value}
               type="button"
-              onClick={() => setSelectedId(s.id)}
-              className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${
-                selectedId === s.id ? "bg-primary-50" : ""
+              onClick={() => {
+                setStatus(f.value);
+                resetToFirstPage();
+                persistFilters({ status: f.value, mode, search });
+              }}
+              className={`inline-flex items-center gap-1 text-sm px-3 py-1.5 ${
+                status === f.value
+                  ? f.activeCls
+                  : "text-gray-500 hover:bg-gray-50"
               }`}
             >
-              <div className="text-sm font-medium text-gray-900 truncate">
-                {s.customerId}
-              </div>
-              <div className="text-xs text-gray-500 mt-0.5">
-                {new Date(s.createdAt).toLocaleString()} ·{" "}
-                {s.externalSessionSource}
-              </div>
+              {f.icon} {f.label}
             </button>
           ))}
-        </aside>
+        </div>
 
-        <section className="col-span-8">
-          {selectedId ? (
-            <SessionDetail
-              sessionId={selectedId}
-              reviewerId={user.id}
-              onFinalized={() => setSelectedId(null)}
+        <div className="flex items-center gap-2">
+          {/* Mode segmented control */}
+          <div className="inline-flex rounded-lg border border-gray-200 bg-white overflow-hidden">
+            {(
+              [
+                {
+                  value: "all",
+                  label: "All",
+                  icon: null,
+                  activeCls: "bg-gray-100 text-gray-900",
+                },
+                {
+                  value: "sandbox",
+                  label: "Sandbox",
+                  icon: <FlaskConical size={13} />,
+                  activeCls: "bg-yellow-100 text-yellow-700",
+                },
+                {
+                  value: "production",
+                  label: "Live",
+                  icon: <Radio size={13} />,
+                  activeCls: "bg-red-100 text-red-700",
+                },
+              ] as const
+            ).map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                onClick={() => {
+                  setMode(m.value);
+                  resetToFirstPage();
+                  persistFilters({ status, mode: m.value, search });
+                }}
+                className={`inline-flex items-center gap-1 text-sm px-3 py-1.5 ${
+                  mode === m.value
+                    ? m.activeCls
+                    : "text-gray-500 hover:bg-gray-50"
+                }`}
+              >
+                {m.icon}
+                {m.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Search */}
+          <form onSubmit={submitSearch} className="relative">
+            <Search
+              size={14}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"
             />
-          ) : (
-            <div className="bg-white border border-gray-200 rounded-xl p-6 text-sm text-gray-500">
-              Select a session to review.
-            </div>
-          )}
-        </section>
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search customer…"
+              className="w-56 pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
+            />
+            {searchInput && (
+              <button
+                type="button"
+                onClick={clearSearch}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </form>
+        </div>
       </div>
+
+      {/* Table */}
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50">
+            <tr className="border-b border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <th className="px-4 py-3 w-10">
+                <input
+                  type="checkbox"
+                  checked={allOnPageSelected}
+                  onChange={toggleAll}
+                  aria-label="Select all"
+                  className="h-4 w-4 rounded border-gray-300 accent-primary-500 cursor-pointer align-middle"
+                />
+              </th>
+              <th className="px-4 py-3">Customer</th>
+              <th className="px-4 py-3">Country</th>
+              <th className="px-4 py-3">Mode</th>
+              <th className="px-4 py-3">Submitted</th>
+              <th className="px-4 py-3">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {query.isLoading && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  Loading…
+                </td>
+              </tr>
+            )}
+            {!query.isLoading && query.isError && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center">
+                  <div className="text-sm text-red-600">
+                    Couldn’t load submissions.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => query.refetch()}
+                    className="mt-2 text-sm text-primary-700 hover:underline"
+                  >
+                    Try again
+                  </button>
+                </td>
+              </tr>
+            )}
+            {!query.isLoading && !query.isError && rows.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  No submissions match these filters.
+                </td>
+              </tr>
+            )}
+            {rows.map((row) => (
+              <ReviewRow
+                key={row.id}
+                row={row}
+                selected={selected.has(row.id)}
+                onToggle={() => toggleRow(row.id)}
+                onClick={() => navigate(`/kyc-review/${row.id}`)}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
+        <div>
+          {data ? `${data.total} submission${data.total === 1 ? "" : "s"}` : ""}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft size={14} /> Prev
+          </button>
+          <span className="text-gray-600">
+            Page {data?.page ?? page} of {totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Next <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* Floating bulk-action bar — appears once rows are selected */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 rounded-xl border border-gray-200 bg-white py-2 pl-4 pr-2 shadow-lg">
+          <span className="text-sm text-gray-600">
+            {selected.size} selected
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelected(new Set())}
+            className="text-xs text-gray-500 hover:text-gray-700"
+          >
+            Clear
+          </button>
+          <div className="h-5 border-l border-gray-200" />
+          <button
+            type="button"
+            onClick={() => setArchiveOpen(true)}
+            className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-gray-800 hover:bg-gray-900 text-white text-sm font-medium"
+          >
+            <Archive size={14} /> Archive
+          </button>
+        </div>
+      )}
+
+      {/* Archive — confirmation modal (reason required for audit) */}
+      <Modal
+        open={archiveOpen}
+        onClose={() => setArchiveOpen(false)}
+        title={`Archive ${selected.size} submission${selected.size === 1 ? "" : "s"}`}
+        subtitle="Hidden from the queue but kept for audit — never hard-deleted."
+        maxWidth="md"
+        footer={
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setArchiveOpen(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={archiveSession.isPending || archiveReason.trim() === ""}
+              onClick={handleBulkArchive}
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-gray-800 hover:bg-gray-900 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {archiveSession.isPending ? "Archiving…" : "Confirm archive"}
+            </button>
+          </div>
+        }
+      >
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Reason <span className="text-red-500">*</span>
+        </label>
+        <textarea
+          value={archiveReason}
+          onChange={(e) => setArchiveReason(e.target.value)}
+          placeholder="Why are these being archived? (e.g. test data, duplicate entry)"
+          rows={3}
+          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-300"
+        />
+      </Modal>
     </div>
   );
 };
 
-const SessionDetail = ({
-  sessionId,
-  reviewerId,
-  onFinalized,
-}: {
-  sessionId: string;
-  reviewerId: string;
-  onFinalized: () => void;
-}) => {
-  const detail = useWorkflowSession(sessionId);
-  const documentFront = useSessionFileUrl(sessionId, "document_front");
-  const documentBack = useSessionFileUrl(sessionId, "document_back");
-  const faceVideo = useSessionFileUrl(sessionId, "face_video");
-  const proofOfResidence = useSessionFileUrl(sessionId, "proof_of_residence");
-  const finalize = useFinalizeSession();
-  const [reason, setReason] = useState("");
-
-  // Reset reason when switching session.
-  useEffect(() => {
-    setReason("");
-  }, [sessionId]);
-
-  const handleFinalize = async (decision: ReviewDecision) => {
-    await finalize.mutateAsync({
-      sessionId,
-      decision,
-      reviewedBy: reviewerId,
-      reason: reason || undefined,
-    });
-    onFinalized();
-  };
-
-  const groupedAttributes = useMemo(() => {
-    const groups = new Map<string, Array<{ key: string; value: string }>>();
-    for (const attr of detail.data?.attributes ?? []) {
-      const [namespace, ...rest] = attr.attribute.split(".");
-      const ns = namespace ?? "other";
-      const key = rest.join(".");
-      const list = groups.get(ns) ?? [];
-      list.push({ key, value: attr.value });
-      groups.set(ns, list);
-    }
-    return groups;
-  }, [detail.data]);
-
-  if (detail.isLoading || !detail.data) {
-    return (
-      <div className="bg-white border border-gray-200 rounded-xl p-6 text-sm text-gray-500">
-        Loading session…
-      </div>
-    );
-  }
-
-  const session = detail.data.session;
-  const ivStep = detail.data.steps.find(
-    (s) => s.step === "identity-verification",
-  );
-  const overallStatus = ivStep?.status ?? "PENDING";
-
-  // Server-side checks the drift-evaluator runs automatically. We surface
-  // them here so the reviewer can see each one's outcome alongside the
-  // identity-verification result.
-  const TOP_LEVEL_LABELS: Record<string, string> = {
-    "identity-verification": "Identity verification",
-    "aml-screening": "AML screening",
-    "fraud-detection": "Fraud detection",
-    "duplicate-detection": "Duplicate detection",
-    "rules-engine": "Rules engine",
-  };
-  const topLevelOrder = [
-    "identity-verification",
-    "aml-screening",
-    "fraud-detection",
-    "duplicate-detection",
-    "rules-engine",
-  ];
-  const recordedSteps = new Map(
-    detail.data.steps.map((s) => [s.step, s.status]),
-  );
-  const stepRows = topLevelOrder
-    .filter((t) => recordedSteps.has(t))
-    .map((t) => ({ type: t, status: recordedSteps.get(t)! }));
-
+// Just the flag from an ISO alpha-2 code (country name on hover); raw value if
+// unknown, em dash if absent. Reuses the flag-icons CSS the dashboard loads.
+const CountryCell = ({ code }: { code: string | null }) => {
+  if (!code) return <span className="text-gray-300">—</span>;
+  const cc = code.trim().toUpperCase();
+  const country = COUNTRIES.find((c) => c.code === cc);
+  if (!country) return <span className="text-xs text-gray-500">{code}</span>;
   return (
-    <div className="space-y-4">
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="text-base font-semibold text-gray-900">
-                {session.customerId}
-              </div>
-              {session.verificationMode === "sandbox" && (
-                <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800">
-                  Sandbox
-                </span>
-              )}
-            </div>
-            <div className="text-xs text-gray-500 mt-0.5">
-              Submitted {new Date(session.createdAt).toLocaleString()}
-            </div>
-          </div>
-          <span
-            className={`text-xs px-2 py-1 rounded ${
-              overallStatus === "REQUIRES_REVIEW"
-                ? "bg-yellow-100 text-yellow-700"
-                : overallStatus === "SUCCEEDED"
-                  ? "bg-primary-100 text-primary-700"
-                  : overallStatus === "FAILED"
-                    ? "bg-red-100 text-red-700"
-                    : "bg-gray-100 text-gray-600"
-            }`}
-          >
-            {overallStatus.toLowerCase().replace("_", " ")}
-          </span>
-        </div>
-      </div>
+    <span
+      title={country.name}
+      aria-label={country.name}
+      className={`fi fi-${cc.toLowerCase()} inline-block h-4 w-6 rounded-sm shadow-[0_0_0_1px_rgba(0,0,0,0.04)]`}
+    />
+  );
+};
 
-      {stepRows.length > 1 && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">
-            Workflow steps
-          </h3>
-          <div className="space-y-2">
-            {stepRows.map((row) => (
-              <div
-                key={row.type}
-                className="flex items-center justify-between text-sm"
-              >
-                <span className="text-gray-800">
-                  {TOP_LEVEL_LABELS[row.type] ?? row.type}
-                </span>
-                <span
-                  className={`text-xs px-2 py-0.5 rounded ${
-                    row.status === "REQUIRES_REVIEW"
-                      ? "bg-yellow-100 text-yellow-700"
-                      : row.status === "SUCCEEDED"
-                        ? "bg-primary-100 text-primary-700"
-                        : row.status === "FAILED"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-gray-100 text-gray-600"
-                  }`}
-                >
-                  {row.status.toLowerCase().replace("_", " ")}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {documentFront.data?.url && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">
-            Identity document
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <div className="text-xs text-gray-500 mb-1">Front</div>
-              <img
-                src={documentFront.data.url}
-                alt="Document front"
-                className="max-h-60 w-full rounded-lg border border-gray-200 object-contain bg-gray-50"
-              />
-            </div>
-            {documentBack.data?.url && (
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Back</div>
-                <img
-                  src={documentBack.data.url}
-                  alt="Document back"
-                  className="max-h-60 w-full rounded-lg border border-gray-200 object-contain bg-gray-50"
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {faceVideo.data?.url && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Selfie</h3>
-          <img
-            src={faceVideo.data.url}
-            alt="Selfie"
-            className="max-h-72 rounded-lg border border-gray-200"
-          />
-        </div>
-      )}
-
-      {proofOfResidence.data?.url && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">
-            Proof of residence
-          </h3>
-          {/* The key only tells us the type via mime when we fetched it. If it
-              renders as an image, great; otherwise fall back to a link. */}
-          <img
-            src={proofOfResidence.data.url}
-            alt="Proof of residence"
-            className="max-h-72 rounded-lg border border-gray-200"
-            onError={(e) => {
-              const target = e.currentTarget;
-              target.style.display = "none";
-              target.insertAdjacentHTML(
-                "afterend",
-                `<a href="${proofOfResidence.data!.url}" target="_blank" rel="noreferrer" class="text-sm text-primary-700 hover:underline">Open uploaded file</a>`,
-              );
-            }}
-          />
-        </div>
-      )}
-
-      <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-gray-900">
-          Captured attributes
-        </h3>
-        {groupedAttributes.size === 0 ? (
-          <p className="text-sm text-gray-500">
-            No attributes captured yet — the customer is still in the flow.
-          </p>
-        ) : (
-          [...groupedAttributes.entries()].map(([ns, items]) => (
-            <div key={ns}>
-              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                {ns.replace(/_/g, " ")}
-              </div>
-              <dl className="grid grid-cols-2 gap-y-1 gap-x-4 text-sm">
-                {items.map((it) => (
-                  <div key={it.key} className="contents">
-                    <dt className="text-gray-500">{it.key}</dt>
-                    <dd className="text-gray-900 truncate">{it.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          ))
-        )}
-      </div>
-
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Decision</h3>
-        <textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Reason or notes (optional)"
-          rows={3}
-          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-300 mb-3"
+const ReviewRow = ({
+  row,
+  selected,
+  onToggle,
+  onClick,
+}: {
+  row: ReviewQueueRow;
+  selected: boolean;
+  onToggle: () => void;
+  onClick: () => void;
+}) => {
+  const badge = STATUS_BADGE[row.reviewStatus];
+  return (
+    <tr
+      onClick={onClick}
+      className={`h-[60px] cursor-pointer transition-colors ${
+        selected ? "bg-primary-50" : "hover:bg-gray-50"
+      }`}
+    >
+      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggle}
+          aria-label={`Select ${row.customerId}`}
+          className="h-4 w-4 rounded border-gray-300 accent-primary-500 cursor-pointer align-middle"
         />
-        <div className="flex gap-3">
-          <button
-            type="button"
-            disabled={finalize.isPending}
-            onClick={() => handleFinalize("approved")}
-            className="flex-1 py-2 px-4 bg-primary-200 hover:bg-primary-300 text-primary-800 font-medium rounded-lg disabled:opacity-50 text-sm"
-          >
-            Approve
-          </button>
-          <button
-            type="button"
-            disabled={finalize.isPending}
-            onClick={() => handleFinalize("flagged")}
-            className="flex-1 py-2 px-4 bg-orange-100 hover:bg-orange-200 text-orange-700 font-medium rounded-lg disabled:opacity-50 text-sm"
-          >
-            Flag
-          </button>
-          <button
-            type="button"
-            disabled={finalize.isPending}
-            onClick={() => handleFinalize("rejected")}
-            className="flex-1 py-2 px-4 bg-red-50 hover:bg-red-100 text-red-700 font-medium rounded-lg disabled:opacity-50 text-sm"
-          >
-            Reject
-          </button>
+      </td>
+      <td className="px-4 py-3">
+        <div className="font-medium text-gray-900">
+          {row.customerName ?? row.customerId}
         </div>
-      </div>
-    </div>
+        {row.customerName && (
+          <div className="font-mono text-xs text-gray-400">
+            {row.customerId}
+          </div>
+        )}
+      </td>
+      <td className="px-4 py-3 text-sm">
+        <CountryCell code={row.customerCountry} />
+      </td>
+      <td className="px-4 py-3">
+        <span
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+            row.verificationMode === "sandbox"
+              ? "bg-yellow-100 text-yellow-700"
+              : "bg-red-100 text-red-700"
+          }`}
+        >
+          {row.verificationMode === "sandbox" ? (
+            <>
+              <FlaskConical size={12} /> Sandbox
+            </>
+          ) : (
+            <>
+              <Radio size={12} /> Live
+            </>
+          )}
+        </span>
+      </td>
+      <td className="px-4 py-3 text-gray-500">
+        {new Date(row.createdAt).toLocaleString()}
+      </td>
+      <td className="px-4 py-3">
+        <span
+          className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded ${badge.cls}`}
+        >
+          {badge.icon} {badge.label}
+        </span>
+      </td>
+    </tr>
   );
 };

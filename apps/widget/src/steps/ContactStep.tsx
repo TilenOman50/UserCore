@@ -35,6 +35,14 @@ export const ContactStep = (props: ContactStepProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Phone needs a country code AND a number. PhoneInput emits "" until both
+    // are set, and the number sub-field's native `required` only covers the
+    // digits — so an empty composed value here means the country code wasn't
+    // picked. Block instead of silently dropping the phone on submit.
+    if (enabledFields.phone && form.phone.trim() === "") {
+      setError(t("contact.phoneCountryRequired"));
+      return;
+    }
     setLoading(true);
     setError(null);
     try {

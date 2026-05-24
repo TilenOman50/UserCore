@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import type { Logger } from "@usercore/logger";
 import type { AttributeType } from "@usercore/shared-types";
@@ -58,7 +58,28 @@ export const createWorkflowSessionAttributesRepository = (props: {
       );
   };
 
-  return { batchUpsert, findBySessionId };
+  // Remove specific EAV rows — used to wipe a step's captured data when a
+  // reviewer bounces it back for resubmission, so the customer's new submission
+  // doesn't merge with stale values from the first attempt.
+  const deleteByAttributes = async (data: {
+    workflowSessionId: string;
+    attributes: string[];
+  }) => {
+    if (data.attributes.length === 0) return;
+    await db
+      .delete(WorkflowSessionAttributeTable)
+      .where(
+        and(
+          eq(
+            WorkflowSessionAttributeTable.workflowSessionId,
+            data.workflowSessionId,
+          ),
+          inArray(WorkflowSessionAttributeTable.attribute, data.attributes),
+        ),
+      );
+  };
+
+  return { batchUpsert, findBySessionId, deleteByAttributes };
 };
 
 export type WorkflowSessionAttributesRepository = ReturnType<

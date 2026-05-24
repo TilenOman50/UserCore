@@ -211,11 +211,6 @@ export const LivenessStep = (props: LivenessStepProps) => {
                 attributeType: "BOOLEAN",
               },
               {
-                attribute: "identity_verification.liveness_confidence",
-                value: "0.95",
-                attributeType: "NUMBER",
-              },
-              {
                 attribute: "identity_verification.liveness_checks",
                 value: passedChecks.join(","),
                 attributeType: "STRING",

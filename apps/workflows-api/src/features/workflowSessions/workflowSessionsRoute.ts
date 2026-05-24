@@ -11,6 +11,7 @@ import {
 import type {
   WorkflowSession,
   WorkflowSessionAttribute,
+  WorkflowSessionEvent,
   WorkflowSessionStep,
 } from "../../db/schema.db";
 import type { ContextVariables } from "../../types";
@@ -32,6 +33,10 @@ const SessionSchema = z.object({
   customerId: z.string(),
   verificationMode: WorkflowVerificationModeEnum,
   activeDeviceId: z.string().nullable(),
+  archived: z.boolean(),
+  deletedAt: z.string().nullable(),
+  deletedBy: z.string().nullable(),
+  deleteReason: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -58,10 +63,42 @@ const SessionAttributeSchema = z.object({
   updatedAt: z.string(),
 });
 
+const SessionEventSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  detail: z
+    .object({
+      decision: z.string().optional(),
+      steps: z.array(z.string()).optional(),
+      reasonCodes: z.array(z.string()).optional(),
+      note: z.string().nullable().optional(),
+      reason: z.string().nullable().optional(),
+      snapshot: z.record(z.string(), z.string()).optional(),
+    })
+    .nullable(),
+  occurredAt: z.string(),
+  createdBy: z.string().nullable(),
+});
+
 const SessionDetailSchema = z.object({
   session: SessionSchema,
   steps: z.array(SessionStepSchema),
   attributes: z.array(SessionAttributeSchema),
+  // Append-only audit trail (resubmission / re-verification / decision /
+  // archive), oldest first. Powers the dashboard activity timeline.
+  events: z.array(SessionEventSchema),
+  // Gap between the workflow's current requirements and what this session
+  // satisfies. steps = identity sub-steps the customer must (re)complete;
+  // checks = server-side checks not yet run. Drives re-verification for
+  // approved customers.
+  outstanding: z.object({
+    steps: z.array(z.string()),
+    checks: z.array(z.string()),
+  }),
+  // Identity sub-steps enabled in the workflow right now — limits which steps a
+  // reviewer can bounce for resubmission (a step removed from the workflow can't
+  // be redone by the customer).
+  enabledSteps: z.array(z.string()),
 });
 
 const ErrorSchema = z.object({ error: z.string() });
@@ -74,6 +111,10 @@ const serializeSession = (s: WorkflowSession) => ({
   customerId: s.customerId,
   verificationMode: s.verificationMode,
   activeDeviceId: s.activeDeviceId,
+  archived: s.deletedAt != null,
+  deletedAt: s.deletedAt ? s.deletedAt.toISOString() : null,
+  deletedBy: s.deletedBy,
+  deleteReason: s.deleteReason,
   createdAt: s.createdAt.toISOString(),
   updatedAt: s.updatedAt.toISOString(),
 });
@@ -100,6 +141,14 @@ const serializeAttribute = (a: WorkflowSessionAttribute) => ({
   updatedAt: a.updatedAt.toISOString(),
 });
 
+const serializeEvent = (e: WorkflowSessionEvent) => ({
+  id: e.id,
+  type: e.type,
+  detail: e.detail ?? null,
+  occurredAt: e.occurredAt.toISOString(),
+  createdBy: e.createdBy,
+});
+
 export const createWorkflowSessionsRouter = (props: {
   workflowSessionsService: WorkflowSessionsService;
 }) => {
@@ -117,6 +166,23 @@ export const createWorkflowSessionsRouter = (props: {
     const result = await workflowSessionsService.getSessionFileUrl({
       workflowSessionId: id,
       kind,
+    });
+    if (!result) return c.json({ error: "File not found" }, 404);
+    return c.json(result, 200);
+  });
+
+  // Signed URL for a PREVIOUS attempt's object (snapshotted in a resubmission
+  // event) — used by the fraud comparison to show the prior document / selfie.
+  // The service guards that the key belongs to this session. NOTE: path is
+  // `file-by-key` (not `files/by-key`) so it can't collide with the
+  // `/files/:kind/url` route above (`:kind` would otherwise match "by-key").
+  app.get("/workflow-sessions/:id/file-by-key/url", async (c) => {
+    const { id } = c.req.param();
+    const key = c.req.query("key");
+    if (!key) return c.json({ error: "Missing key" }, 400);
+    const result = await workflowSessionsService.getSessionFileUrlByKey({
+      workflowSessionId: id,
+      key,
     });
     if (!result) return c.json({ error: "File not found" }, 404);
     return c.json(result, 200);
@@ -245,6 +311,9 @@ export const createWorkflowSessionsRouter = (props: {
             session: serializeSession(result.session),
             steps: result.steps.map(serializeStep),
             attributes: result.attributes.map(serializeAttribute),
+            events: result.events.map(serializeEvent),
+            outstanding: result.outstanding,
+            enabledSteps: result.enabledSteps,
           },
           200,
         );
@@ -268,6 +337,87 @@ export const createWorkflowSessionsRouter = (props: {
         const sessions =
           await workflowSessionsService.listForReviewQueue(workspaceId);
         return c.json(sessions.map(serializeSession), 200);
+      },
+    )
+    .openapi(
+      createRoute({
+        method: "get",
+        path: "/workflow-sessions/workspace/:workspaceId/review-queue",
+        tags: ["workflow-sessions"],
+        // Paginated + filtered review queue. Each row carries a derived
+        // reviewStatus the dashboard table renders + filters on.
+        request: {
+          params: z.object({ workspaceId: z.string() }),
+          query: z.object({
+            page: z.coerce.number().min(1).default(1),
+            limit: z.coerce.number().min(1).max(100).default(20),
+            status: z
+              .enum([
+                "open",
+                "needs_review",
+                "approved",
+                "rejected",
+                "resubmission",
+                "in_progress",
+                "archived",
+              ])
+              .optional(),
+            mode: WorkflowVerificationModeEnum.optional(),
+            search: z.string().optional(),
+          }),
+        },
+        responses: {
+          200: {
+            content: {
+              "application/json": {
+                schema: z.object({
+                  items: z.array(
+                    SessionSchema.extend({
+                      reviewStatus: z.enum([
+                        "needs_review",
+                        "approved",
+                        "rejected",
+                        "resubmission",
+                        "in_progress",
+                      ]),
+                      customerName: z.string().nullable(),
+                      customerCountry: z.string().nullable(),
+                    }),
+                  ),
+                  total: z.number(),
+                  page: z.number(),
+                  limit: z.number(),
+                  totalPages: z.number(),
+                }),
+              },
+            },
+            description: "Paginated review queue",
+          },
+        },
+      }),
+      async (c) => {
+        const { workspaceId } = c.req.valid("param");
+        const { page, limit, status, mode, search } = c.req.valid("query");
+        const result = await workflowSessionsService.listReviewQueuePaginated({
+          workspaceId,
+          page,
+          limit,
+          status,
+          mode,
+          search,
+        });
+        return c.json(
+          {
+            ...result,
+            items: result.items.map((it) => ({
+              ...serializeSession(it),
+              reviewStatus: it.reviewStatus,
+              customerName: it.customerName,
+              customerCountry: it.customerCountry,
+            })),
+          },
+          200,
+        );
       },
     )
     .openapi(
@@ -366,6 +516,263 @@ export const createWorkflowSessionsRouter = (props: {
     .openapi(
       createRoute({
         method: "post",
+        path: "/workflow-sessions/:id/identity-data",
+        tags: ["workflow-sessions"],
+        // Manual identity data entry from the KYC review page. `fields` is a
+        // map of canonical field suffix → value (e.g. document_first_name).
+        // The service validates against the shared schema and writes the
+        // identity_verification.* attributes — same keys iDenfy writes.
+        request: {
+          params: z.object({ id: z.string() }),
+          body: {
+            content: {
+              "application/json": {
+                schema: z.object({
+                  fields: z.record(z.string(), z.string()),
+                }),
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            content: {
+              "application/json": {
+                schema: z.object({ written: z.number() }),
+              },
+            },
+            description: "Identity data saved",
+          },
+        },
+      }),
+      async (c) => {
+        const { id } = c.req.valid("param");
+        const { fields } = c.req.valid("json");
+        const result = await workflowSessionsService.saveIdentityData({
+          workflowSessionId: id,
+          fields,
+        });
+        return c.json(result, 200);
+      },
+    )
+    .openapi(
+      createRoute({
+        method: "post",
+        path: "/workflow-sessions/:id/run-checks",
+        tags: ["workflow-sessions"],
+        // Officer-triggered re-run of the workflow's provider checks. Now
+        // that a name exists (manual entry or iDenfy), AML is included
+        // instead of deferred. Results stream back asynchronously via the
+        // check-completed consumer; the dashboard polls the session.
+        request: {
+          params: z.object({ id: z.string() }),
+        },
+        responses: {
+          200: {
+            content: {
+              "application/json": {
+                schema: z.object({ triggered: z.boolean() }),
+              },
+            },
+            description: "Checks triggered",
+          },
+        },
+      }),
+      async (c) => {
+        const { id } = c.req.valid("param");
+        const result = await workflowSessionsService.runChecks(id);
+        return c.json(result, 200);
+      },
+    )
+    .openapi(
+      createRoute({
+        method: "post",
+        path: "/workflow-sessions/:id/request-resubmission",
+        tags: ["workflow-sessions"],
+        // Reviewer bounces the session back to the customer for specific
+        // steps. Records resubmission markers + best-effort branded email.
+        request: {
+          params: z.object({ id: z.string() }),
+          body: {
+            content: {
+              "application/json": {
+                schema: z.object({
+                  steps: z.array(z.string()),
+                  note: z.string().optional(),
+                  reasonCodes: z.array(z.string()).optional(),
+                  reviewedBy: z.string(),
+                }),
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            content: {
+              "application/json": {
+                schema: z.object({ ok: z.boolean() }),
+              },
+            },
+            description: "Resubmission requested",
+          },
+        },
+      }),
+      async (c) => {
+        const { id } = c.req.valid("param");
+        const body = c.req.valid("json");
+        await workflowSessionsService.requestResubmission({
+          workflowSessionId: id,
+          steps: body.steps,
+          note: body.note,
+          reasonCodes: body.reasonCodes,
+          reviewedBy: body.reviewedBy,
+        });
+        return c.json({ ok: true }, 200);
+      },
+    )
+    .openapi(
+      createRoute({
+        method: "post",
+        path: "/workflow-sessions/:id/request-reverification",
+        tags: ["workflow-sessions"],
+        // Re-verify an APPROVED customer against the workflow's current
+        // requirements: re-runs outstanding server checks and prompts the
+        // customer (widget) for any missing identity steps — WITHOUT losing
+        // approved status. Only a failed check demotes them.
+        request: {
+          params: z.object({ id: z.string() }),
+          body: {
+            content: {
+              "application/json": {
+                schema: z.object({ reviewedBy: z.string() }),
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            content: {
+              "application/json": {
+                schema: z.object({
+                  steps: z.array(z.string()),
+                  checks: z.array(z.string()),
+                  notified: z.boolean(),
+                }),
+              },
+            },
+            description: "Re-verification requested",
+          },
+        },
+      }),
+      async (c) => {
+        const { id } = c.req.valid("param");
+        const body = c.req.valid("json");
+        const result = await workflowSessionsService.requestReverification({
+          workflowSessionId: id,
+          reviewedBy: body.reviewedBy,
+        });
+        return c.json(
+          result ?? { steps: [], checks: [], notified: false },
+          200,
+        );
+      },
+    )
+    .openapi(
+      createRoute({
+        method: "post",
+        path: "/workflow-sessions/:id/complete-reverification",
+        tags: ["workflow-sessions"],
+        // Widget calls this when the customer finishes re-verification steps:
+        // clears the markers + re-runs checks, keeping approved status (a
+        // failed check demotes via applyAdverseTransition).
+        request: { params: z.object({ id: z.string() }) },
+        responses: {
+          200: {
+            content: {
+              "application/json": {
+                schema: z.object({ completed: z.boolean() }),
+              },
+            },
+            description: "Re-verification completed",
+          },
+        },
+      }),
+      async (c) => {
+        const { id } = c.req.valid("param");
+        const result = await workflowSessionsService.completeReverification(id);
+        return c.json(result, 200);
+      },
+    )
+    .openapi(
+      createRoute({
+        method: "post",
+        path: "/workflow-sessions/:id/archive",
+        tags: ["workflow-sessions"],
+        // Soft-delete (archive) a submission: hides it from the queue but keeps
+        // the record for AML retention/audit (deletedBy + reason preserved).
+        // Never a hard delete.
+        request: {
+          params: z.object({ id: z.string() }),
+          body: {
+            content: {
+              "application/json": {
+                schema: z.object({
+                  reviewedBy: z.string(),
+                  reason: z.string(),
+                }),
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            content: {
+              "application/json": {
+                schema: z.object({ archived: z.boolean() }),
+              },
+            },
+            description: "Session archived",
+          },
+        },
+      }),
+      async (c) => {
+        const { id } = c.req.valid("param");
+        const body = c.req.valid("json");
+        const result = await workflowSessionsService.archiveSession({
+          workflowSessionId: id,
+          reviewedBy: body.reviewedBy,
+          reason: body.reason,
+        });
+        return c.json(result, 200);
+      },
+    )
+    .openapi(
+      createRoute({
+        method: "post",
+        path: "/workflow-sessions/:id/restore",
+        tags: ["workflow-sessions"],
+        // Un-archive — returns a soft-deleted submission to the queue.
+        request: { params: z.object({ id: z.string() }) },
+        responses: {
+          200: {
+            content: {
+              "application/json": {
+                schema: z.object({ restored: z.boolean() }),
+              },
+            },
+            description: "Session restored",
+          },
+        },
+      }),
+      async (c) => {
+        const { id } = c.req.valid("param");
+        const result = await workflowSessionsService.restoreSession(id);
+        return c.json(result, 200);
+      },
+    )
+    .openapi(
+      createRoute({
+        method: "post",
         path: "/workflow-sessions/:id/finalize",
         tags: ["workflow-sessions"],
         request: {
@@ -377,6 +784,7 @@ export const createWorkflowSessionsRouter = (props: {
                   decision: z.enum(["approved", "rejected", "flagged"]),
                   reviewedBy: z.string(),
                   reason: z.string().optional(),
+                  reasonCodes: z.array(z.string()).optional(),
                 }),
               },
             },

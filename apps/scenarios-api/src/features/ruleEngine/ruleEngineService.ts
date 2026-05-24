@@ -1,8 +1,10 @@
 import type { Logger } from "@usercore/logger";
-import type {
-  RuleOperator,
-  ScenarioCondition,
-  ScenarioEvaluation,
+import {
+  findAttributeDefinition,
+  normalizeCountryCode,
+  type RuleOperator,
+  type ScenarioCondition,
+  type ScenarioEvaluation,
 } from "@usercore/shared-types";
 
 type CustomerData = Record<
@@ -20,8 +22,25 @@ export const createRuleEngineService = (props: { logger: Logger }) => {
     const fieldValue = _resolveAttribute(condition.attribute, data);
     if (fieldValue === undefined || fieldValue === null) return false;
 
-    const strField = String(fieldValue).toLowerCase();
-    const strRule = condition.value.toLowerCase();
+    // Country-valued attributes (nationality, issuing/residence country, IP
+    // country) can be captured as alpha-2 ("AR", manual form/widget) or alpha-3
+    // ("ARG", iDenfy / the scenario enum). Normalize BOTH sides to canonical
+    // alpha-3 so the comparison matches regardless of source format. (Per
+    // comma-separated part, to cover in/nin lists.)
+    const isCountry =
+      findAttributeDefinition(condition.attribute)?.valueDisplay === "country";
+    const normalizeList = (v: string) =>
+      isCountry
+        ? v
+            .split(",")
+            .map((part) => normalizeCountryCode(part))
+            .join(",")
+        : v;
+    const fieldStr = normalizeList(String(fieldValue));
+    const ruleStr = normalizeList(condition.value);
+
+    const strField = fieldStr.toLowerCase();
+    const strRule = ruleStr.toLowerCase();
     const numField = Number(fieldValue);
     const numRule = Number(condition.value);
 
@@ -30,7 +49,7 @@ export const createRuleEngineService = (props: { logger: Logger }) => {
       strRule,
       numField,
       numRule,
-      rawRuleValue: condition.value,
+      rawRuleValue: ruleStr,
     });
   };
 
@@ -38,9 +57,11 @@ export const createRuleEngineService = (props: { logger: Logger }) => {
     group: ScenarioEvaluation,
     data: CustomerData,
   ): boolean => {
-    const conditionResults = group.queries.map((q) =>
-      evaluateCondition(q, data),
-    );
+    // Ignore incomplete conditions (no attribute) — a blank row left in the
+    // editor must not silently break an AND/OR group.
+    const conditionResults = group.queries
+      .filter((q) => isRealCondition(q))
+      .map((q) => evaluateCondition(q, data));
     const groupResults = group.queryGroups.map((g) => evaluateGroup(g, data));
     const all = [...conditionResults, ...groupResults];
     if (all.length === 0) return false;
@@ -66,6 +87,11 @@ export const createRuleEngineService = (props: { logger: Logger }) => {
 };
 
 export type RuleEngineService = ReturnType<typeof createRuleEngineService>;
+
+// A condition is only meaningful with an attribute to evaluate. Blank rows
+// (saved by the editor) are ignored everywhere — evaluation and display.
+export const isRealCondition = (c: ScenarioCondition): boolean =>
+  (c.attribute ?? "").trim() !== "";
 
 // Some attributes are derived from raw stored data — `identity_verification.age`
 // is computed from `identity_verification.date_of_birth` so rules can match on

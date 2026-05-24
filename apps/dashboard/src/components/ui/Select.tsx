@@ -12,6 +12,9 @@ export type SelectOption = {
   value: string;
   label: string;
   disabled?: boolean;
+  // Optional leading visual (e.g. a country flag) shown before the label in
+  // both the trigger and the option row.
+  icon?: ReactNode;
 };
 
 export type SelectOptionGroup = {
@@ -172,6 +175,7 @@ export const Select = ({
         className={`w-full ${heightCls} pl-3 pr-8 bg-white border ${borderCls} rounded-lg shadow-sm focus:outline-none disabled:opacity-50 disabled:bg-gray-50 text-left transition-colors flex items-center gap-2`}
       >
         {leading && <span className="text-gray-500 shrink-0">{leading}</span>}
+        {selected?.icon && <span className="shrink-0">{selected.icon}</span>}
         <span
           className={`flex-1 truncate ${selected ? "text-gray-900" : "text-gray-400"}`}
         >
@@ -319,6 +323,7 @@ const SelectItem = ({
       highlighted ? "bg-primary-50" : "bg-white"
     } ${active ? "text-primary-800 font-medium" : "text-gray-700"} disabled:opacity-50 disabled:cursor-not-allowed`}
   >
+    {option.icon && <span className="shrink-0">{option.icon}</span>}
     <span className="flex-1 truncate">{option.label}</span>
     {active && <Check size={14} className="text-primary-600 shrink-0" />}
   </button>

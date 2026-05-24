@@ -108,7 +108,7 @@ You confirm that the information and documents you submit belong to you and are 
   // Document
   "doc.title": "Identity document",
   "doc.subtitle": "Upload a clear photo of your government-issued ID.",
-  "doc.country": "Country of issue",
+  "doc.country": "Document country",
   "doc.type": "Document type",
   "doc.passport": "Passport",
   "doc.idCard": "National ID",
@@ -183,6 +183,9 @@ You confirm that the information and documents you submit belong to you and are 
   "contact.continue": "Continue",
   "contact.saving": "Saving…",
   "contact.error": "Failed to submit. Please try again.",
+  "contact.phoneCountryRequired":
+    "Please select a country code for your phone number.",
+  "resubmission.title": "A reviewer asked you to update a few things:",
 
   // Success
   "success.title": "Verification submitted",
@@ -192,6 +195,17 @@ You confirm that the information and documents you submit belong to you and are 
   "success.next1": "Our team reviews your submission",
   "success.next2": "You receive an email with the decision",
   "success.next3": "Typically reviewed within 1–2 business days",
+  "success.notifyPrompt": "Want an update by email? (optional)",
+  "success.emailPlaceholder": "you@example.com",
+  "success.notifyButton": "Notify me",
+  "success.notifySaving": "Saving…",
+  "success.notifySaved": "Thanks — we'll email you when there's an update.",
+  "success.approvedTitle": "You're verified",
+  "success.approvedSubtitle":
+    "Your identity has been approved. You can close this window.",
+  "success.rejectedTitle": "Verification not approved",
+  "success.rejectedSubtitle":
+    "We couldn't approve your verification. Please contact support if you think this is a mistake.",
 
   // Common widgets / pickers
   "common.search": "Search…",
@@ -282,7 +296,7 @@ Potrjuješ, da podatki in dokumenti, ki jih oddajaš, pripadajo tebi in so točn
 
   "doc.title": "Osebni dokument",
   "doc.subtitle": "Naloži jasno fotografijo osebnega dokumenta.",
-  "doc.country": "Država izdaje",
+  "doc.country": "Država dokumenta",
   "doc.type": "Vrsta dokumenta",
   "doc.passport": "Potni list",
   "doc.idCard": "Osebna izkaznica",
@@ -355,6 +369,9 @@ Potrjuješ, da podatki in dokumenti, ki jih oddajaš, pripadajo tebi in so točn
   "contact.continue": "Naprej",
   "contact.saving": "Shranjevanje…",
   "contact.error": "Pošiljanje ni uspelo. Prosim, poskusi znova.",
+  "contact.phoneCountryRequired":
+    "Prosim, izberi klicno kodo države za telefonsko številko.",
+  "resubmission.title": "Pregledovalec te prosi, da posodobiš nekaj stvari:",
 
   "success.title": "Preverjanje oddano",
   "success.subtitle":
@@ -363,6 +380,17 @@ Potrjuješ, da podatki in dokumenti, ki jih oddajaš, pripadajo tebi in so točn
   "success.next1": "Naša ekipa pregleda tvojo oddajo",
   "success.next2": "Po e-pošti prejmeš odločitev",
   "success.next3": "Pregled običajno traja 1–2 delovna dneva",
+  "success.notifyPrompt": "Želiš obvestilo po e-pošti? (neobvezno)",
+  "success.emailPlaceholder": "ti@primer.com",
+  "success.notifyButton": "Obvesti me",
+  "success.notifySaving": "Shranjujem…",
+  "success.notifySaved": "Hvala — obvestili te bomo po e-pošti ob spremembi.",
+  "success.approvedTitle": "Preverjanje uspešno",
+  "success.approvedSubtitle":
+    "Tvoja istovetnost je potrjena. To okno lahko zapreš.",
+  "success.rejectedTitle": "Preverjanje ni odobreno",
+  "success.rejectedSubtitle":
+    "Tvojega preverjanja nismo mogli odobriti. Če meniš, da gre za napako, se obrni na podporo.",
 
   "common.search": "Iskanje…",
   "common.searchCountries": "Iskanje držav…",
@@ -456,7 +484,7 @@ Sie bestätigen, dass die übermittelten Informationen und Dokumente Ihnen gehö
 
   "doc.title": "Ausweisdokument",
   "doc.subtitle": "Laden Sie ein scharfes Foto Ihres amtlichen Ausweises hoch.",
-  "doc.country": "Ausstellungsland",
+  "doc.country": "Land des Dokuments",
   "doc.type": "Dokumentart",
   "doc.passport": "Reisepass",
   "doc.idCard": "Personalausweis",
@@ -533,6 +561,10 @@ Sie bestätigen, dass die übermittelten Informationen und Dokumente Ihnen gehö
   "contact.continue": "Weiter",
   "contact.saving": "Speichern…",
   "contact.error": "Senden fehlgeschlagen. Bitte erneut versuchen.",
+  "contact.phoneCountryRequired":
+    "Bitte wähle eine Ländervorwahl für deine Telefonnummer.",
+  "resubmission.title":
+    "Ein Prüfer bittet dich, einige Angaben zu aktualisieren:",
 
   "success.title": "Verifizierung eingereicht",
   "success.subtitle":
@@ -541,6 +573,18 @@ Sie bestätigen, dass die übermittelten Informationen und Dokumente Ihnen gehö
   "success.next1": "Unser Team prüft Ihre Einreichung",
   "success.next2": "Sie erhalten eine E-Mail mit der Entscheidung",
   "success.next3": "Die Prüfung dauert in der Regel 1–2 Werktage",
+  "success.notifyPrompt": "Update per E-Mail erhalten? (optional)",
+  "success.emailPlaceholder": "sie@beispiel.com",
+  "success.notifyButton": "Benachrichtigen",
+  "success.notifySaving": "Wird gespeichert…",
+  "success.notifySaved":
+    "Danke — wir benachrichtigen Sie per E-Mail bei einer Aktualisierung.",
+  "success.approvedTitle": "Sie sind verifiziert",
+  "success.approvedSubtitle":
+    "Ihre Identität wurde bestätigt. Sie können dieses Fenster schließen.",
+  "success.rejectedTitle": "Verifizierung nicht genehmigt",
+  "success.rejectedSubtitle":
+    "Wir konnten Ihre Verifizierung nicht genehmigen. Bitte kontaktieren Sie den Support, wenn Sie dies für einen Fehler halten.",
 
   "common.search": "Suchen…",
   "common.searchCountries": "Länder suchen…",
@@ -634,7 +678,7 @@ Vous confirmez que les informations et documents que vous soumettez vous apparti
   "doc.title": "Pièce d'identité",
   "doc.subtitle":
     "Téléchargez une photo nette de votre pièce d'identité officielle.",
-  "doc.country": "Pays d'émission",
+  "doc.country": "Pays du document",
   "doc.type": "Type de document",
   "doc.passport": "Passeport",
   "doc.idCard": "Carte nationale d'identité",
@@ -709,6 +753,10 @@ Vous confirmez que les informations et documents que vous soumettez vous apparti
   "contact.continue": "Continuer",
   "contact.saving": "Enregistrement…",
   "contact.error": "L'envoi a échoué. Veuillez réessayer.",
+  "contact.phoneCountryRequired":
+    "Veuillez sélectionner un indicatif de pays pour votre numéro de téléphone.",
+  "resubmission.title":
+    "Un examinateur vous demande de mettre à jour certains éléments :",
 
   "success.title": "Vérification soumise",
   "success.subtitle":
@@ -717,6 +765,18 @@ Vous confirmez que les informations et documents que vous soumettez vous apparti
   "success.next1": "Notre équipe examine votre soumission",
   "success.next2": "Vous recevez un e-mail avec la décision",
   "success.next3": "L'examen prend généralement 1 à 2 jours ouvrés",
+  "success.notifyPrompt": "Recevoir une mise à jour par e-mail ? (facultatif)",
+  "success.emailPlaceholder": "vous@exemple.com",
+  "success.notifyButton": "Me notifier",
+  "success.notifySaving": "Enregistrement…",
+  "success.notifySaved":
+    "Merci — nous vous enverrons un e-mail dès qu'il y a du nouveau.",
+  "success.approvedTitle": "Vous êtes vérifié",
+  "success.approvedSubtitle":
+    "Votre identité a été approuvée. Vous pouvez fermer cette fenêtre.",
+  "success.rejectedTitle": "Vérification non approuvée",
+  "success.rejectedSubtitle":
+    "Nous n'avons pas pu approuver votre vérification. Contactez le support si vous pensez qu'il s'agit d'une erreur.",
 
   "common.search": "Rechercher…",
   "common.searchCountries": "Rechercher un pays…",
@@ -808,7 +868,7 @@ Confirmas que la información y los documentos que envías te pertenecen y son e
 
   "doc.title": "Documento de identidad",
   "doc.subtitle": "Sube una foto nítida de tu documento de identidad oficial.",
-  "doc.country": "País de emisión",
+  "doc.country": "País del documento",
   "doc.type": "Tipo de documento",
   "doc.passport": "Pasaporte",
   "doc.idCard": "DNI",
@@ -882,6 +942,9 @@ Confirmas que la información y los documentos que envías te pertenecen y son e
   "contact.continue": "Continuar",
   "contact.saving": "Guardando…",
   "contact.error": "El envío ha fallado. Inténtalo de nuevo.",
+  "contact.phoneCountryRequired":
+    "Selecciona un código de país para tu número de teléfono.",
+  "resubmission.title": "Un revisor te pidió que actualices algunos datos:",
 
   "success.title": "Verificación enviada",
   "success.subtitle":
@@ -890,6 +953,18 @@ Confirmas que la información y los documentos que envías te pertenecen y son e
   "success.next1": "Nuestro equipo revisa tu envío",
   "success.next2": "Recibes un correo con la decisión",
   "success.next3": "La revisión suele tardar 1–2 días laborables",
+  "success.notifyPrompt": "¿Quieres una actualización por correo? (opcional)",
+  "success.emailPlaceholder": "tu@ejemplo.com",
+  "success.notifyButton": "Avísame",
+  "success.notifySaving": "Guardando…",
+  "success.notifySaved":
+    "Gracias — te enviaremos un correo cuando haya novedades.",
+  "success.approvedTitle": "Estás verificado",
+  "success.approvedSubtitle":
+    "Tu identidad ha sido aprobada. Puedes cerrar esta ventana.",
+  "success.rejectedTitle": "Verificación no aprobada",
+  "success.rejectedSubtitle":
+    "No pudimos aprobar tu verificación. Contacta con soporte si crees que es un error.",
 
   "common.search": "Buscar…",
   "common.searchCountries": "Buscar países…",

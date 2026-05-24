@@ -30,7 +30,10 @@ import {
 } from "@usercore/shared-types";
 
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { AttributePickerModal } from "../components/scenarios/AttributePickerModal";
+import {
+  AttributePickerModal,
+  TYPE_BADGE_COLORS,
+} from "../components/scenarios/AttributePickerModal";
 import { MultiSelect } from "../components/ui/MultiSelect";
 import { SaveIndicator } from "../components/ui/SaveIndicator";
 import { Select } from "../components/ui/Select";
@@ -576,7 +579,9 @@ const AttributePicker = ({
           {attrDef ? attrDef.label : "Select attribute…"}
         </span>
         {attrDef && (
-          <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+          <span
+            className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${TYPE_BADGE_COLORS[attrDef.type]}`}
+          >
             {attrDef.type}
           </span>
         )}

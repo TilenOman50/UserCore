@@ -3,6 +3,7 @@ import { Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { CustomersPage } from "./pages/CustomersPage";
+import { KycReviewDetailPage } from "./pages/KycReviewDetailPage";
 import { KycReviewPage } from "./pages/KycReviewPage";
 import { LoginPage } from "./pages/LoginPage";
 import { OverviewPage } from "./pages/OverviewPage";
@@ -24,6 +25,10 @@ export const App = () => {
           <Route path="workflows" element={<WorkflowsPage />} />
           <Route path="workflows/:id" element={<WorkflowDetailPage />} />
           <Route path="kyc-review" element={<KycReviewPage />} />
+          <Route
+            path="kyc-review/:sessionId"
+            element={<KycReviewDetailPage />}
+          />
           <Route path="scenarios" element={<ScenariosPage />} />
           <Route path="scenarios/:id" element={<ScenarioDetailPage />} />
           <Route path="providers" element={<ProvidersPage />} />

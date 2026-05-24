@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Command } from "cmdk";
 import { useNavigate } from "react-router-dom";
 
+import { navItems } from "../../components/Layout";
 import { signOut } from "../../lib/authClient";
 import { useSwitchWorkspace } from "../../lib/hooks/useWorkspaceMutations";
 import { useWorkspace } from "../../lib/workspaceContext";
@@ -76,36 +77,15 @@ export const CommandPalette = () => {
                   heading="Navigate"
                   className="text-xs font-medium text-gray-400 uppercase tracking-wide px-3 py-2"
                 >
-                  <Command.Item
-                    onSelect={() => go("/")}
-                    className="px-3 py-2 rounded-lg text-sm cursor-pointer aria-selected:bg-primary-50 aria-selected:text-primary-800"
-                  >
-                    Overview
-                  </Command.Item>
-                  <Command.Item
-                    onSelect={() => go("/customers")}
-                    className="px-3 py-2 rounded-lg text-sm cursor-pointer aria-selected:bg-primary-50 aria-selected:text-primary-800"
-                  >
-                    Customers
-                  </Command.Item>
-                  <Command.Item
-                    onSelect={() => go("/kyc-review")}
-                    className="px-3 py-2 rounded-lg text-sm cursor-pointer aria-selected:bg-primary-50 aria-selected:text-primary-800"
-                  >
-                    KYC Review
-                  </Command.Item>
-                  <Command.Item
-                    onSelect={() => go("/scenarios")}
-                    className="px-3 py-2 rounded-lg text-sm cursor-pointer aria-selected:bg-primary-50 aria-selected:text-primary-800"
-                  >
-                    Scenarios
-                  </Command.Item>
-                  <Command.Item
-                    onSelect={() => go("/settings")}
-                    className="px-3 py-2 rounded-lg text-sm cursor-pointer aria-selected:bg-primary-50 aria-selected:text-primary-800"
-                  >
-                    Settings
-                  </Command.Item>
+                  {navItems.map((item) => (
+                    <Command.Item
+                      key={item.path}
+                      onSelect={() => go(item.path)}
+                      className="px-3 py-2 rounded-lg text-sm cursor-pointer aria-selected:bg-primary-50 aria-selected:text-primary-800"
+                    >
+                      {item.label}
+                    </Command.Item>
+                  ))}
                 </Command.Group>
 
                 <Command.Group

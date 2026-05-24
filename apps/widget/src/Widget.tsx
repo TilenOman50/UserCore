@@ -147,7 +147,7 @@ export const Widget = (props: WidgetProps) => {
   // not just the Shell. (Children rendered by Shell are passed as the same
   // React element reference; React bails out of re-rendering them unless an
   // ancestor that actually creates them re-renders.)
-  useLocale();
+  const locale = useLocale();
 
   const [bootError, setBootError] = useState<string | null>(null);
   const [booted, setBooted] = useState(false);
@@ -171,6 +171,22 @@ export const Widget = (props: WidgetProps) => {
   );
   const [phase, setPhase] = useState<Phase>("overview");
   const [stepType, setStepType] = useState<SubStepType | null>(null);
+  // Whether we already have a way to reach this customer (verified email or
+  // an end-screen notification email). Drives the optional email prompt on
+  // the terminal "review in progress" screen.
+  const [hasContactEmail, setHasContactEmail] = useState(false);
+  // Terminal review outcome surfaced when a customer reopens an
+  // already-submitted/decided session. null = not yet submitted (normal flow).
+  const [reviewStatus, setReviewStatus] = useState<
+    "in_review" | "approved" | "rejected" | null
+  >(null);
+  // True when an approved customer was bounced back for re-verification (a
+  // workflow requirement was added). Completion keeps them approved rather than
+  // sending them back to review.
+  const [isReverification, setIsReverification] = useState(false);
+  const [resubmissionMessage, setResubmissionMessage] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -178,6 +194,7 @@ export const Widget = (props: WidgetProps) => {
       try {
         const sessionDetail = await apiJson<{
           session: Session;
+          steps: { step: string; status: string }[];
           attributes: Attribute[];
         }>(
           `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(sessionId)}`,
@@ -253,7 +270,75 @@ export const Widget = (props: WidgetProps) => {
             completed.add(sub);
           }
         }
+        // Resubmission: if a reviewer bounced specific steps back, force them
+        // incomplete so the overview routes the customer to redo them — their
+        // prior data is still on file (audit) but they must re-do these.
+        const resubmitRequested =
+          sessionDetail.attributes.find(
+            (a) => a.attribute === "_session.resubmission_requested",
+          )?.value === "true";
+        if (resubmitRequested) {
+          const csv =
+            sessionDetail.attributes.find(
+              (a) => a.attribute === "_session.resubmission_steps",
+            )?.value ?? "";
+          for (const raw of csv.split(",")) {
+            completed.delete(raw.trim() as SubStepType);
+          }
+          // The reviewer's reasons + note, composed server-side — shown to the
+          // customer so they know WHY they're redoing steps.
+          setResubmissionMessage(
+            sessionDetail.attributes.find(
+              (a) => a.attribute === "_session.resubmission_message",
+            )?.value ?? null,
+          );
+        }
+        // Re-verification (separate from resubmission): an approved customer
+        // must (re)complete added/stale steps and STAYS approved on completion.
+        const reverificationRequested =
+          sessionDetail.attributes.find(
+            (a) => a.attribute === "_session.reverification_requested",
+          )?.value === "true";
+        if (reverificationRequested) {
+          const csv =
+            sessionDetail.attributes.find(
+              (a) => a.attribute === "_session.reverification_steps",
+            )?.value ?? "";
+          for (const raw of csv.split(",")) {
+            completed.delete(raw.trim() as SubStepType);
+          }
+        }
+        setIsReverification(reverificationRequested);
         setCompletedSubSteps(completed);
+        setHasContactEmail(
+          sessionDetail.attributes.some(
+            (a) =>
+              (a.attribute === "email_verification.email" ||
+                a.attribute === "_session.notification_email") &&
+              a.value.trim() !== "",
+          ),
+        );
+
+        // Reopen handling: if the session is already submitted/decided (and
+        // not bounced back for resubmission), jump straight to the terminal
+        // status screen instead of replaying the flow. The
+        // identity-verification step status carries the outcome — set to
+        // REQUIRES_REVIEW on submit, SUCCEEDED/FAILED by the reviewer.
+        if (!resubmitRequested && !reverificationRequested) {
+          const ivStatus = sessionDetail.steps.find(
+            (s) => s.step === "identity-verification",
+          )?.status;
+          if (ivStatus === "SUCCEEDED") {
+            setReviewStatus("approved");
+            setPhase("done");
+          } else if (ivStatus === "FAILED") {
+            setReviewStatus("rejected");
+            setPhase("done");
+          } else if (ivStatus === "REQUIRES_REVIEW") {
+            setReviewStatus("in_review");
+            setPhase("done");
+          }
+        }
         setBooted(true);
       } catch (err) {
         if (!cancelled) {
@@ -273,6 +358,90 @@ export const Widget = (props: WidgetProps) => {
     if (!brandLogoUrl?.startsWith("blob:")) return;
     return () => URL.revokeObjectURL(brandLogoUrl);
   }, [brandLogoUrl]);
+
+  // Persist the language the customer is using so resume/resubmission emails and
+  // their in-widget reasons arrive in the same language. Best-effort, fire on
+  // boot and on any in-widget language switch.
+  useEffect(() => {
+    if (!booted || !session?.id) return;
+    void fetch(
+      `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(
+        session.id,
+      )}/attributes`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attributes: [
+            {
+              attribute: "_session.locale",
+              value: locale,
+              attributeType: "STRING",
+            },
+          ],
+        }),
+      },
+    ).catch(() => undefined);
+  }, [booted, session?.id, locale, workflowsApiUrl]);
+
+  // While the customer waits on the end screen, poll for the reviewer's outcome
+  // so they see approved/rejected live — or get routed back if a resubmission is
+  // requested — without refreshing. Stops once a terminal status is shown.
+  useEffect(() => {
+    if (phase !== "done" || reviewStatus !== "in_review") return;
+    let cancelled = false;
+    const tick = async () => {
+      // Presence heartbeat — lets the backend tell the widget is still open and
+      // skip the decision/resubmission email; the live update already covers it.
+      void fetch(
+        `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(sessionId)}/attributes`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            attributes: [
+              {
+                attribute: "_session.last_seen_at",
+                value: new Date().toISOString(),
+                attributeType: "DATE",
+              },
+            ],
+          }),
+        },
+      ).catch(() => undefined);
+      try {
+        const detail = await apiJson<{
+          steps: { step: string; status: string }[];
+          attributes: Attribute[];
+        }>(
+          `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(sessionId)}`,
+        );
+        if (cancelled) return;
+        const resub =
+          detail.attributes.find(
+            (a) => a.attribute === "_session.resubmission_requested",
+          )?.value === "true";
+        if (resub) {
+          // Re-boot so the resubmission path takes over (routes to the steps).
+          window.location.reload();
+          return;
+        }
+        const ivStatus = detail.steps.find(
+          (s) => s.step === "identity-verification",
+        )?.status;
+        if (ivStatus === "SUCCEEDED") setReviewStatus("approved");
+        else if (ivStatus === "FAILED") setReviewStatus("rejected");
+      } catch {
+        // best-effort — the next tick retries
+      }
+    };
+    void tick(); // stamp presence immediately on reaching the end screen
+    const interval = setInterval(tick, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [phase, reviewStatus, workflowsApiUrl, sessionId]);
 
   // Phone-side: once the widget loads via QR, mark the session so the
   // desktop widget knows control has moved. Best-effort, fail silent.
@@ -332,7 +501,43 @@ export const Widget = (props: WidgetProps) => {
             completed.add(sub);
           }
         }
+        // Steps the reviewer bounced back (resubmission / re-verification). Their
+        // prior data is still on file, so the checkers above mark them "done" —
+        // we must force them incomplete here too, exactly like boot does.
+        // Otherwise this poll silently re-completes a step the reviewer just sent
+        // back ("uncompleted for a few seconds then completed by itself").
+        const bounced = new Set<SubStepType>();
+        const collectBounced = (flag: string, stepsKey: string) => {
+          if (
+            detail.attributes.find((a) => a.attribute === flag)?.value !==
+            "true"
+          )
+            return;
+          const csv =
+            detail.attributes.find((a) => a.attribute === stepsKey)?.value ??
+            "";
+          for (const raw of csv.split(",")) {
+            const step = raw.trim() as SubStepType;
+            if (step) bounced.add(step);
+          }
+        };
+        collectBounced(
+          "_session.resubmission_requested",
+          "_session.resubmission_steps",
+        );
+        collectBounced(
+          "_session.reverification_requested",
+          "_session.reverification_steps",
+        );
+        for (const step of bounced) completed.delete(step);
         setCompletedSubSteps((prev) => {
+          // Carry over any bounced step the customer already re-did locally this
+          // session — the server checker can't distinguish fresh data from the
+          // prior submission, so we trust the in-session completion and never
+          // wipe it back out from under them on the next tick.
+          for (const step of bounced) {
+            if (prev.has(step)) completed.add(step);
+          }
           if (
             prev.size === completed.size &&
             [...completed].every((c) => prev.has(c))
@@ -393,6 +598,23 @@ export const Widget = (props: WidgetProps) => {
 
   const finalize = async () => {
     try {
+      if (isReverification) {
+        // Re-verification of an approved customer: clear markers + re-run
+        // checks server-side, but DON'T flip identity-verification — they stay
+        // approved unless a re-check fails.
+        await apiJson(
+          `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(sessionId)}/complete-reverification`,
+          { method: "POST" },
+        );
+        window.parent?.postMessage(
+          { type: "usercore.widget.complete", sessionId },
+          "*",
+        );
+        setReviewStatus("approved");
+        setPhase("done");
+        onComplete?.("submitted");
+        return;
+      }
       await apiJson(
         `${workflowsApiUrl}/workflows/workflow-sessions/${encodeURIComponent(sessionId)}/steps`,
         {
@@ -407,6 +629,7 @@ export const Widget = (props: WidgetProps) => {
         { type: "usercore.widget.complete", sessionId },
         "*",
       );
+      setReviewStatus("in_review");
       setPhase("done");
       onComplete?.("submitted");
     } catch (err) {
@@ -468,7 +691,12 @@ export const Widget = (props: WidgetProps) => {
   if (phase === "done") {
     return (
       <Shell branding={shellBranding}>
-        <SuccessStep />
+        <SuccessStep
+          workflowsApiUrl={workflowsApiUrl}
+          sessionId={sessionId}
+          hasContactEmail={hasContactEmail}
+          status={reviewStatus ?? "in_review"}
+        />
       </Shell>
     );
   }
@@ -497,6 +725,16 @@ export const Widget = (props: WidgetProps) => {
   if (phase === "overview") {
     return (
       <Shell branding={shellBranding}>
+        {resubmissionMessage && (
+          <div className="mb-4 rounded-xl border border-orange-200 bg-orange-50 p-4">
+            <div className="text-sm font-medium text-orange-800">
+              {t("resubmission.title")}
+            </div>
+            <div className="mt-1 text-xs text-orange-700">
+              {resubmissionMessage}
+            </div>
+          </div>
+        )}
         <OverviewScreen
           steps={orderedSteps.map((t) => ({
             type: t,

@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { z } from "zod";
 
-import { COUNTRIES } from "./countries.js";
+import { COUNTRIES, ISO2_TO_ISO3 } from "./countries.js";
 
 export {
   COUNTRIES,
@@ -144,7 +144,9 @@ export const SCENARIO_ATTRIBUTES: readonly AttributeDefinition[] = [
     type: "number",
   },
   {
-    key: "identity_verification.nationality",
+    // Canonical document_* key — matches the manual review form + iDenfy (both
+    // write identity_verification.document_nationality).
+    key: "identity_verification.document_nationality",
     label: "Nationality",
     category: "Identity",
     type: "enum",
@@ -179,7 +181,9 @@ export const SCENARIO_ATTRIBUTES: readonly AttributeDefinition[] = [
     label: "Sex on document",
     category: "Identity",
     type: "enum",
-    enumValues: ["M", "F"],
+    // Matches the capture form's options (M/F/X) — without X a customer whose
+    // document sex is X could never be matched by a sex rule.
+    enumValues: ["M", "F", "X"],
   },
   {
     key: "aml_screening.match_status",
@@ -251,12 +255,33 @@ export const SCENARIO_ATTRIBUTES: readonly AttributeDefinition[] = [
     category: "Fraud detection",
     type: "boolean",
   },
+  {
+    key: "fraud_detection.recent_abuse",
+    label: "Recent abuse",
+    category: "Fraud detection",
+    type: "boolean",
+  },
+  {
+    key: "fraud_detection.bot_status",
+    label: "Bot detected",
+    category: "Fraud detection",
+    type: "boolean",
+  },
 ];
 
 export const findAttributeDefinition = (
   key: string,
 ): AttributeDefinition | undefined => {
   return SCENARIO_ATTRIBUTES.find((a) => a.key === key);
+};
+
+// Normalize a country code to canonical ISO alpha-3 (codes already alpha-3, or
+// unrecognized, pass through). Lets rule evaluation compare country-valued
+// conditions regardless of whether the value was captured as alpha-2 (manual
+// form / widget — e.g. "AR") or alpha-3 (iDenfy / the scenario enum — "ARG").
+export const normalizeCountryCode = (code: string): string => {
+  const upper = code.trim().toUpperCase();
+  return ISO2_TO_ISO3[upper] ?? upper;
 };
 
 // Recursive evaluation tree. Each node is either a flat list of conditions
@@ -481,6 +506,85 @@ export type IdentityVerificationSubStepType = z.infer<
   typeof IdentityVerificationSubStepTypeEnum
 >;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Canonical identity-data schema — THE shared contract for extracted ID data.
+// Both the iDenfy webhook mapper (provider path) and the KYC review manual
+// data-entry form (human path) write these exact EAV attribute keys, so
+// everything downstream (AML search term, duplicate detection, rules engine)
+// reads one source-agnostic schema and never needs to know who filled it.
+// ─────────────────────────────────────────────────────────────────────────────
+export const IDENTITY_ATTRIBUTE_PREFIX = "identity_verification";
+
+// Build a fully-qualified EAV key from a field suffix, e.g.
+// identityAttributeKey("document_number") → "identity_verification.document_number".
+export const identityAttributeKey = (suffix: string): string =>
+  `${IDENTITY_ATTRIBUTE_PREFIX}.${suffix}`;
+
+export type IdentityFieldType = "STRING" | "DATE";
+
+export type IdentityFieldDef = {
+  // Suffix after the prefix, e.g. "document_first_name".
+  key: string;
+  // Fully-qualified EAV attribute key.
+  attribute: string;
+  // Human label for the manual review form.
+  label: string;
+  type: IdentityFieldType;
+  // Part of the minimal set required before downstream checks (AML etc.) can
+  // run and the session is considered "identity data ready". Core = name +
+  // DOB, which is what AML screening needs to be meaningful.
+  core: boolean;
+};
+
+const identityField = (
+  key: string,
+  label: string,
+  type: IdentityFieldType,
+  core = false,
+): IdentityFieldDef => ({
+  key,
+  attribute: identityAttributeKey(key),
+  label,
+  type,
+  core,
+});
+
+// Ordered for rendering in the manual data-entry form. Provider-only keys
+// (provider_decision, provider_scan_ref, full_name) are intentionally NOT
+// here — full_name is derived from first+last, the rest are iDenfy metadata.
+export const IDENTITY_VERIFICATION_FIELDS: IdentityFieldDef[] = [
+  identityField("document_first_name", "First name", "STRING", true),
+  identityField("document_last_name", "Last name", "STRING", true),
+  identityField("date_of_birth", "Date of birth", "DATE", true),
+  identityField("document_type", "Document type", "STRING", true),
+  identityField("document_number", "Document number", "STRING", true),
+  // Nationality, issuing country and personal code stay optional: driver
+  // licenses often omit nationality, and many countries' documents have no
+  // personal/national code — requiring them would block valid documents.
+  identityField("document_nationality", "Nationality", "STRING"),
+  identityField("document_issuing_country", "Issuing country", "STRING"),
+  identityField("document_personal_code", "Personal / national code", "STRING"),
+  identityField("document_sex", "Sex", "STRING", true),
+  identityField("document_date_of_issue", "Date of issue", "DATE", true),
+  identityField("document_expiry", "Expiry date", "DATE", true),
+  // Address lives on Proof of Residence — passports/ID cards don't show one.
+  identityField("address", "Address", "STRING"),
+];
+
+// The minimal fields that must be present for downstream checks to run. Used
+// by the "identity data ready" gate and the manual form's Run-checks enable.
+export const REQUIRED_IDENTITY_FIELD_KEYS: string[] =
+  IDENTITY_VERIFICATION_FIELDS.filter((f) => f.core).map((f) => f.attribute);
+
+// Provider/derived keys that live under the same namespace but are not part
+// of the manual form. Kept here so all canonical keys are documented in one
+// place.
+export const IDENTITY_DERIVED_KEYS = {
+  fullName: identityAttributeKey("full_name"),
+  providerDecision: identityAttributeKey("provider_decision"),
+  providerScanRef: identityAttributeKey("provider_scan_ref"),
+} as const;
+
 // Document types accepted by the ID-scan step. Mirrors the widget's
 // hardcoded picker until per-substep config exposes a subset.
 export const ID_DOCUMENT_TYPES = [
@@ -500,6 +604,230 @@ export const POR_DOCUMENT_TYPES = [
 ] as const;
 export const PorDocumentTypeEnum = z.enum(POR_DOCUMENT_TYPES);
 export type PorDocumentType = z.infer<typeof PorDocumentTypeEnum>;
+
+// Predefined reject / resubmission reasons. Codes mirror iDenfy's reason
+// vocabulary (autoDocument / autoFace / fraudTags) so the MANUAL review path and
+// the iDenfy path speak the same codes — enabling iDenfy stays seamless. iDenfy
+// has no resubmit-vs-reject split, so we annotate each with our own `severity`.
+export const KYC_REASON_AREAS = ["document", "face", "fraud", "other"] as const;
+export const KycReasonAreaEnum = z.enum(KYC_REASON_AREAS);
+export type KycReasonArea = z.infer<typeof KycReasonAreaEnum>;
+
+export const KYC_REASON_SEVERITIES = ["resubmit", "reject"] as const;
+export const KycReasonSeverityEnum = z.enum(KYC_REASON_SEVERITIES);
+export type KycReasonSeverity = z.infer<typeof KycReasonSeverityEnum>;
+
+export type KycReason = {
+  code: string;
+  label: string;
+  area: KycReasonArea;
+  severity: KycReasonSeverity;
+};
+
+// Curated subset officers pick from. The iDenfy path can store ANY iDenfy code
+// (the ingest is tolerant); this list is just what's offered in the modals.
+export const KYC_REASONS: KycReason[] = [
+  // Document — fixable (resubmit)
+  {
+    code: "DOC_TOO_BLURRY",
+    label: "Document photo too blurry",
+    area: "document",
+    severity: "resubmit",
+  },
+  {
+    code: "DOC_GLARED",
+    label: "Glare on the document",
+    area: "document",
+    severity: "resubmit",
+  },
+  {
+    code: "DOC_NOT_FULLY_VISIBLE",
+    label: "Document not fully visible / cut off",
+    area: "document",
+    severity: "resubmit",
+  },
+  {
+    code: "DOC_SIDE_MISMATCH",
+    label: "Wrong or missing side of the document",
+    area: "document",
+    severity: "resubmit",
+  },
+  {
+    code: "DOC_TYPE_MISMATCH",
+    label: "Wrong document type uploaded",
+    area: "document",
+    severity: "resubmit",
+  },
+  // Document — terminal (reject)
+  {
+    code: "DOC_EXPIRED",
+    label: "Document expired",
+    area: "document",
+    severity: "reject",
+  },
+  {
+    code: "DOC_NOT_SUPPORTED",
+    label: "Document type not supported",
+    area: "document",
+    severity: "reject",
+  },
+  {
+    code: "DOC_DAMAGED",
+    label: "Document damaged",
+    area: "document",
+    severity: "reject",
+  },
+  {
+    code: "DOC_FAKE",
+    label: "Fake / forged document",
+    area: "document",
+    severity: "reject",
+  },
+  {
+    code: "DOC_SPOOF_DETECTED",
+    label: "Document spoof detected",
+    area: "document",
+    severity: "reject",
+  },
+  {
+    code: "DOC_MOBILE_PHOTO",
+    label: "Photo of a screen, not a real document",
+    area: "document",
+    severity: "reject",
+  },
+  // Face — fixable
+  {
+    code: "FACE_TOO_BLURRY",
+    label: "Selfie too blurry",
+    area: "face",
+    severity: "resubmit",
+  },
+  {
+    code: "FACE_GLARED",
+    label: "Glare on the selfie",
+    area: "face",
+    severity: "resubmit",
+  },
+  {
+    code: "NO_FACE_FOUND",
+    label: "No face detected in the selfie",
+    area: "face",
+    severity: "resubmit",
+  },
+  // Face — terminal
+  {
+    code: "FACE_MISMATCH",
+    label: "Face does not match the document",
+    area: "face",
+    severity: "reject",
+  },
+  {
+    code: "FAKE_FACE",
+    label: "Fake / spoofed selfie",
+    area: "face",
+    severity: "reject",
+  },
+  {
+    code: "FACE_SUSPECTED",
+    label: "Suspected face fraud",
+    area: "face",
+    severity: "reject",
+  },
+  // Fraud — terminal
+  {
+    code: "AML_SUSPECTION",
+    label: "AML / sanctions concern",
+    area: "fraud",
+    severity: "reject",
+  },
+  {
+    code: "UNDER_AGE",
+    label: "Below the minimum age",
+    area: "fraud",
+    severity: "reject",
+  },
+  {
+    code: "DUPLICATE_FACE",
+    label: "Duplicate — face already registered",
+    area: "fraud",
+    severity: "reject",
+  },
+  {
+    code: "DUPLICATE_PERSONAL_DATA",
+    label: "Duplicate — personal data already registered",
+    area: "fraud",
+    severity: "reject",
+  },
+  // Catch-all — shown in both modals (area "other")
+  {
+    code: "OTHER",
+    label: "Other (see note)",
+    area: "other",
+    severity: "reject",
+  },
+];
+
+// Customer-facing reason labels, localized so resume emails + the widget match
+// the language the customer used. Only resubmit-severity reasons (+ OTHER) ever
+// reach a customer, so only those are translated; anything else falls back to
+// the English label. (Custom officer notes are never translated.)
+const KYC_REASON_TRANSLATIONS: Record<string, Record<string, string>> = {
+  sl: {
+    DOC_TOO_BLURRY: "Fotografija dokumenta je preveč zamegljena",
+    DOC_GLARED: "Odsev na dokumentu",
+    DOC_NOT_FULLY_VISIBLE: "Dokument ni v celoti viden / odrezan",
+    DOC_SIDE_MISMATCH: "Napačna ali manjkajoča stran dokumenta",
+    DOC_TYPE_MISMATCH: "Naložena napačna vrsta dokumenta",
+    FACE_TOO_BLURRY: "Selfi je preveč zamegljen",
+    FACE_GLARED: "Odsev na selfiju",
+    NO_FACE_FOUND: "Na selfiju ni zaznanega obraza",
+    OTHER: "Drugo (glej opombo)",
+  },
+  de: {
+    DOC_TOO_BLURRY: "Dokumentfoto zu unscharf",
+    DOC_GLARED: "Spiegelung auf dem Dokument",
+    DOC_NOT_FULLY_VISIBLE:
+      "Dokument nicht vollständig sichtbar / abgeschnitten",
+    DOC_SIDE_MISMATCH: "Falsche oder fehlende Dokumentseite",
+    DOC_TYPE_MISMATCH: "Falscher Dokumenttyp hochgeladen",
+    FACE_TOO_BLURRY: "Selfie zu unscharf",
+    FACE_GLARED: "Spiegelung auf dem Selfie",
+    NO_FACE_FOUND: "Kein Gesicht im Selfie erkannt",
+    OTHER: "Sonstiges (siehe Hinweis)",
+  },
+  fr: {
+    DOC_TOO_BLURRY: "Photo du document trop floue",
+    DOC_GLARED: "Reflet sur le document",
+    DOC_NOT_FULLY_VISIBLE: "Document non entièrement visible / coupé",
+    DOC_SIDE_MISMATCH: "Côté du document incorrect ou manquant",
+    DOC_TYPE_MISMATCH: "Mauvais type de document téléchargé",
+    FACE_TOO_BLURRY: "Selfie trop flou",
+    FACE_GLARED: "Reflet sur le selfie",
+    NO_FACE_FOUND: "Aucun visage détecté sur le selfie",
+    OTHER: "Autre (voir la note)",
+  },
+  es: {
+    DOC_TOO_BLURRY: "Foto del documento demasiado borrosa",
+    DOC_GLARED: "Reflejo en el documento",
+    DOC_NOT_FULLY_VISIBLE: "Documento no totalmente visible / cortado",
+    DOC_SIDE_MISMATCH: "Cara del documento incorrecta o faltante",
+    DOC_TYPE_MISMATCH: "Tipo de documento incorrecto subido",
+    FACE_TOO_BLURRY: "Selfie demasiado borroso",
+    FACE_GLARED: "Reflejo en el selfie",
+    NO_FACE_FOUND: "No se detecta ningún rostro en el selfie",
+    OTHER: "Otro (ver la nota)",
+  },
+};
+
+// Resolve a reason code to a label, optionally in the customer's locale.
+// Falls back to the English catalog label, then the raw code.
+export const kycReasonLabel = (code: string, locale?: string): string => {
+  const translated =
+    locale && locale !== "en"
+      ? KYC_REASON_TRANSLATIONS[locale]?.[code]
+      : undefined;
+  return translated ?? KYC_REASONS.find((r) => r.code === code)?.label ?? code;
+};
 
 // providerConfig schemas, one per substep type. Stored as JSONB on the
 // substep row. Missing fields => "no restriction"; the widget applies sane

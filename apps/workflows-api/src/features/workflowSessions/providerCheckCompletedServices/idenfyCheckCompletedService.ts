@@ -26,6 +26,10 @@ type IdenfyData = {
 type IdenfyStatus = {
   overall?: string;
   suspicionReasons?: string[];
+  fraudTags?: string[];
+  mismatchTags?: string[];
+  autoFace?: string;
+  manualFace?: string;
 };
 
 const flattenIdenfyPayload = (
@@ -52,7 +56,7 @@ const flattenIdenfyPayload = (
       ["identity_verification.document_personal_code", data.docPersonalCode],
       ["identity_verification.document_type", data.docType],
       ["identity_verification.document_sex", data.docSex],
-      ["identity_verification.nationality", data.docNationality],
+      ["identity_verification.document_nationality", data.docNationality],
       [
         "identity_verification.document_issuing_country",
         data.docIssuingCountry,
@@ -88,6 +92,29 @@ const flattenIdenfyPayload = (
     out.push({
       attribute: "identity_verification.provider_scan_ref",
       value: scanRef,
+      attributeType: "STRING",
+    });
+  }
+  // Provider verdict reasons — iDenfy's own tag taxonomy (same vocabulary as our
+  // KYC_REASONS), surfaced read-only on the review page. Stored as CSV.
+  const tagFields: Array<[string, string[] | undefined]> = [
+    ["identity_verification.suspicion_reasons", status?.suspicionReasons],
+    ["identity_verification.fraud_tags", status?.fraudTags],
+    ["identity_verification.mismatch_tags", status?.mismatchTags],
+  ];
+  for (const [attribute, arr] of tagFields) {
+    if (arr && arr.length > 0) {
+      out.push({ attribute, value: arr.join(","), attributeType: "STRING" });
+    }
+  }
+  // Effective face verdict — prefer the manual reviewer's call over the auto one
+  // (mirrors iDenfy's precedence). Surfaced in the review Face scan section on
+  // the iDenfy path (where there's no MediaPipe gesture liveness).
+  const faceStatus = status?.manualFace || status?.autoFace;
+  if (faceStatus) {
+    out.push({
+      attribute: "identity_verification.face_status",
+      value: faceStatus,
       attributeType: "STRING",
     });
   }

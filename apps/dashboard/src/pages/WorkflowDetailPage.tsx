@@ -345,7 +345,7 @@ export const WorkflowDetailPage = () => {
                         });
                       }}
                       className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-200 disabled:cursor-not-allowed disabled:opacity-50 ${
-                        isLive ? "bg-primary-500" : "bg-gray-300"
+                        isLive ? "bg-red-500" : "bg-gray-300"
                       }`}
                     >
                       <span

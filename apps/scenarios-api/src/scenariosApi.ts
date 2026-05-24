@@ -233,6 +233,9 @@ export const createScenariosApi = (props: {
                   workspaceId: z.string(),
                   customerId: z.string(),
                   customerData: z.record(z.unknown()),
+                  // Optional: evaluate only these scenarios (the rules-engine
+                  // step passes the ids linked to that workflow step).
+                  scenarioIds: z.array(z.string()).optional(),
                 }),
               },
             },
@@ -242,7 +245,44 @@ export const createScenariosApi = (props: {
           200: {
             content: {
               "application/json": {
-                schema: z.object({ evaluated: z.boolean() }),
+                schema: z.object({
+                  evaluated: z.boolean(),
+                  triggered: z.array(
+                    z.object({
+                      scenarioId: z.string(),
+                      name: z.string(),
+                      actions: z.array(
+                        z.object({
+                          type: z.string(),
+                          value: z.string(),
+                          enabled: z.boolean(),
+                        }),
+                      ),
+                    }),
+                  ),
+                  evaluations: z.array(
+                    z.object({
+                      scenarioId: z.string(),
+                      name: z.string(),
+                      matched: z.boolean(),
+                      actions: z.array(
+                        z.object({
+                          type: z.string(),
+                          value: z.string(),
+                          enabled: z.boolean(),
+                        }),
+                      ),
+                      conditions: z.array(
+                        z.object({
+                          attribute: z.string(),
+                          operator: z.string(),
+                          value: z.string(),
+                          passed: z.boolean(),
+                        }),
+                      ),
+                    }),
+                  ),
+                }),
               },
             },
             description: "Evaluated",
@@ -251,15 +291,17 @@ export const createScenariosApi = (props: {
       }),
       async (c) => {
         const body = c.req.valid("json");
-        await scenarioService.evaluateScenariosForCustomer({
-          workspaceId: body.workspaceId,
-          customerId: body.customerId,
-          customerData: body.customerData as Record<
-            string,
-            string | number | boolean | null | undefined
-          >,
-        });
-        return c.json({ evaluated: true }, 200);
+        const { triggered, evaluations } =
+          await scenarioService.evaluateScenariosForCustomer({
+            workspaceId: body.workspaceId,
+            customerId: body.customerId,
+            customerData: body.customerData as Record<
+              string,
+              string | number | boolean | null | undefined
+            >,
+            scenarioIds: body.scenarioIds,
+          });
+        return c.json({ evaluated: true, triggered, evaluations }, 200);
       },
     );
 };

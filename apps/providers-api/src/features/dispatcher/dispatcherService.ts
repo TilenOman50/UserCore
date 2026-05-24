@@ -57,9 +57,24 @@ export const registerProviderDispatcher = async (props: {
             msg: "ComplyAdvantage check stubbed — sandbox mode",
             sessionId: req.workflowSessionId,
           });
+          // Shaped like a real ComplyAdvantage response so the completion
+          // service flattens rich detail (risk level, hits, categories). A
+          // clean "no hits, low risk" mock for predictable sandbox demos.
           return {
             status: "SUCCEEDED",
-            rawPayload: { sandbox: true, matchStatus: "no_match" },
+            rawPayload: {
+              sandbox: true,
+              content: {
+                data: {
+                  id: Math.floor(Math.random() * 1_000_000_000),
+                  ref: `sandbox-${req.workflowSessionId}`,
+                  match_status: "no_match",
+                  risk_level: "low",
+                  total_hits: 0,
+                  hits: [],
+                },
+              },
+            },
             message: "sandbox · 0 hits, risk=low",
           };
         }
@@ -98,9 +113,25 @@ export const registerProviderDispatcher = async (props: {
             msg: "IPQS check stubbed — sandbox mode",
             sessionId: req.workflowSessionId,
           });
+          // Snake-case top-level fields matching what the completion service
+          // flattens (fraud_score, country_code, flags). Clean low-risk mock.
           return {
             status: "SUCCEEDED",
-            rawPayload: { sandbox: true, fraudScore: 5 },
+            rawPayload: {
+              sandbox: true,
+              fraud_score: 5,
+              country_code: "SI",
+              vpn: false,
+              tor: false,
+              proxy: false,
+              is_crawler: false,
+              recent_abuse: false,
+              bot_status: false,
+              connection_type: "Residential",
+              ISP: "Telekom Slovenije",
+              region: "Ljubljana",
+              city: "Ljubljana",
+            },
             message: "sandbox · fraud_score=5",
           };
         }

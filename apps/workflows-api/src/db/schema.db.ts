@@ -297,6 +297,14 @@ export const WorkflowSessionTable = pgTable(
       .notNull()
       .default("sandbox"),
     activeDeviceId: text("active_device_id"),
+    // Soft delete (archive). A KYC submission is never hard-deleted — AML
+    // retention + audit obligations require keeping the record. Archiving just
+    // hides it from the review queue; deletedBy + deleteReason preserve the
+    // audit trail of who archived it and why. A retention-expiry job purges
+    // rows for real after the regulatory window.
+    deletedAt: timestamp("deleted_at"),
+    deletedBy: text("deleted_by"),
+    deleteReason: text("delete_reason"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -368,6 +376,48 @@ export const WorkflowSessionAttributeTable = pgTable(
   }),
 );
 
+// Append-only audit trail of significant actions on a session — resubmission /
+// re-verification requests, reviewer decisions, archival. Unlike the
+// resubmission markers (last-wins state the widget reads), each round is a NEW
+// row here, so the dashboard activity timeline can show the full history.
+// createdBy is the member who acted (null for system / customer events).
+export type WorkflowSessionEventDetail = {
+  decision?: string;
+  steps?: string[];
+  reasonCodes?: string[];
+  note?: string | null;
+  reason?: string | null;
+  // Snapshot of the prior attempt's captured data (attribute → value), taken
+  // right before a resubmission wipes it. Preserves the baseline for audit and
+  // for attempt-over-attempt fraud comparison (identity-swap detection).
+  snapshot?: Record<string, string>;
+};
+
+export const WorkflowSessionEventTable = pgTable(
+  "workflow_session_event",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => generateId("workflowsessionevent")),
+    workflowSessionId: text("workflow_session_id")
+      .notNull()
+      .references(() => WorkflowSessionTable.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    detail: jsonb("detail").$type<WorkflowSessionEventDetail>(),
+    // The moment the action happened. Separate from createdAt so a future
+    // backfill can record historical times while createdAt stays insert-time.
+    occurredAt: timestamp("occurred_at").defaultNow().notNull(),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    sessionIdx: index("workflow_session_event_session_idx").on(
+      table.workflowSessionId,
+    ),
+  }),
+);
+
 // Per-organization credentials + toggle for each external provider. Source
 // of truth for the dashboard's Providers page; the runtime dispatcher still
 // reads from env credentials today (a per-org runtime fetch is a future
@@ -418,6 +468,10 @@ export type WorkflowSession = typeof WorkflowSessionTable.$inferSelect;
 export type WorkflowSessionStep = typeof WorkflowSessionStepTable.$inferSelect;
 export type WorkflowSessionAttribute =
   typeof WorkflowSessionAttributeTable.$inferSelect;
+export type WorkflowSessionEvent =
+  typeof WorkflowSessionEventTable.$inferSelect;
+export type NewWorkflowSessionEvent =
+  typeof WorkflowSessionEventTable.$inferInsert;
 export type ProviderConfiguration =
   typeof ProviderConfigurationTable.$inferSelect;
 export type NewProviderConfiguration =

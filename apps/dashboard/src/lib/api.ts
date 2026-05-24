@@ -3,6 +3,7 @@ export const TMS_API_URL = "http://localhost:3002";
 export const IDENTITY_API_URL = "http://localhost:3003";
 export const WORKFLOWS_API_URL = "http://localhost:3004";
 export const SCENARIOS_API_URL = "http://localhost:3005";
+export const DASHBOARD_API_URL = "http://localhost:3006";
 export const WIDGET_URL = "http://localhost:3007";
 
 // URLs used by the "Test the flow on mobile" QR code. A phone can't reach
