@@ -6,13 +6,37 @@ import type {
 } from "@usercore/shared-types";
 import { EVENTS } from "@usercore/shared-types";
 
-import type { RuleEngineService } from "../ruleEngine/ruleEngineService";
+import {
+  isRealCondition,
+  type RuleEngineService,
+} from "../ruleEngine/ruleEngineService";
 import type { ScenarioRepository } from "./scenarioRepository";
 
 type CustomerData = Record<
   string,
   string | number | boolean | null | undefined
 >;
+
+export type TriggeredScenario = {
+  scenarioId: string;
+  name: string;
+  actions: ScenarioActionConfig[];
+};
+
+export type EvaluatedCondition = {
+  attribute: string;
+  operator: string;
+  value: string;
+  passed: boolean;
+};
+
+export type EvaluatedScenario = {
+  scenarioId: string;
+  name: string;
+  matched: boolean;
+  actions: ScenarioActionConfig[];
+  conditions: EvaluatedCondition[];
+};
 
 export const createScenarioService = (props: {
   scenarioRepository: ScenarioRepository;
@@ -49,6 +73,9 @@ export const createScenarioService = (props: {
       actions: ScenarioActionConfig[];
     }>,
   ) => {
+    // Blank/in-progress condition rows are kept as-is (the editor needs them
+    // while you build a scenario); they're simply ignored at evaluation and
+    // display time via isRealCondition.
     return scenarioRepository.update(id, data);
   };
 
@@ -56,26 +83,61 @@ export const createScenarioService = (props: {
     return scenarioRepository.deleteById(id);
   };
 
-  // Run every scenario in a workspace against the customer's flattened
-  // attribute map. workflows-api's rules-engine step already passes only the
-  // scenarios linked to a specific workflow step when calling /evaluate, so
-  // we don't need a separate "active" flag.
+  // Evaluate scenarios in a workspace against the customer's flattened
+  // attribute map. When `scenarioIds` is given (the rules-engine step passes
+  // only the scenarios linked to that workflow step) we evaluate just those;
+  // otherwise the whole workspace. Returns the triggered scenarios + their
+  // enabled actions so the caller (workflows-api) can derive a verdict, and
+  // still publishes SCENARIO_TRIGGERED events for any downstream consumers.
+  // Flatten a scenario's condition tree into a per-condition pass/fail list so
+  // the reviewer can see WHY a scenario did or didn't match (the platform's
+  // activity-log style).
+  const flattenConditions = (
+    group: ScenarioEvaluation,
+    data: CustomerData,
+  ): EvaluatedCondition[] => {
+    const own = group.queries.filter(isRealCondition).map((q) => ({
+      attribute: q.attribute,
+      operator: q.operator,
+      value: q.value,
+      passed: ruleEngineService.evaluateCondition(q, data),
+    }));
+    const nested = group.queryGroups.flatMap((g) => flattenConditions(g, data));
+    return [...own, ...nested];
+  };
+
   const evaluateScenariosForCustomer = async (props: {
     workspaceId: string;
     customerId: string;
     customerData: CustomerData;
-  }) => {
-    const scenarios = await scenarioRepository.findByWorkspaceId(
-      props.workspaceId,
-    );
+    scenarioIds?: string[];
+  }): Promise<{
+    triggered: TriggeredScenario[];
+    evaluations: EvaluatedScenario[];
+  }> => {
+    const all = await scenarioRepository.findByWorkspaceId(props.workspaceId);
+    const scenarios = props.scenarioIds
+      ? all.filter((s) => props.scenarioIds!.includes(s.id))
+      : all;
+
+    const triggered: TriggeredScenario[] = [];
+    const evaluations: EvaluatedScenario[] = [];
     for (const scenario of scenarios) {
-      const triggered = ruleEngineService.evaluateScenario(
+      const matched = ruleEngineService.evaluateScenario(
         scenario.evaluation,
         props.customerData,
       );
-      if (!triggered) continue;
-      for (const action of scenario.actions) {
-        if (!action.enabled) continue;
+      const actions = scenario.actions.filter((a) => a.enabled);
+      evaluations.push({
+        scenarioId: scenario.id,
+        name: scenario.name,
+        matched,
+        actions: matched ? actions : [],
+        conditions: flattenConditions(scenario.evaluation, props.customerData),
+      });
+      if (!matched) continue;
+      triggered.push({ scenarioId: scenario.id, name: scenario.name, actions });
+      for (const action of actions) {
         await rabbitMQ.publish({
           exchange: "usercore.events",
           routingKey: EVENTS.SCENARIO_TRIGGERED,
@@ -94,6 +156,7 @@ export const createScenarioService = (props: {
         });
       }
     }
+    return { triggered, evaluations };
   };
 
   return {

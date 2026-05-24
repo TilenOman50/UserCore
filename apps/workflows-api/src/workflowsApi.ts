@@ -148,19 +148,22 @@ export const createWorkflowsApi = async (props: {
     authApiUrl: env.AUTH_API_URL,
     logger,
   });
+  const mailer = createMailer({ logger });
   const workflowSessionsService = createWorkflowSessionsService({
     workflowSessionsRepository,
     workflowSessionStepsRepository,
     workflowSessionAttributesRepository,
     workflowsRepository,
     workflowStepsRepository,
+    rulesEngineRepository,
+    identityVerificationRepository,
     providerConfigurationsService,
     storageService,
+    mailer,
     planClient,
     rabbitMQ,
     logger,
   });
-  const mailer = createMailer({ logger });
   const emailVerificationService = createEmailVerificationService({
     attributesRepository: workflowSessionAttributesRepository,
     sessionsRepository: workflowSessionsRepository,

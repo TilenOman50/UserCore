@@ -1,8 +1,10 @@
 import { z } from "zod";
 
-import type {
-  AttributeType,
-  WorkflowSessionStatus,
+import {
+  IDENTITY_DERIVED_KEYS,
+  identityAttributeKey,
+  type AttributeType,
+  type WorkflowSessionStatus,
 } from "@usercore/shared-types";
 
 // iDenfy callback payload — fields per their public docs. Only fields we map
@@ -12,9 +14,10 @@ export const IdenfyWebhookPayload = z.object({
   scanRef: z.string(),
   status: z
     .object({
-      overall: z
-        .enum(["APPROVED", "DENIED", "REVIEWING", "EXPIRED", "ACTIVE"])
-        .optional(),
+      // Accept ANY overall status iDenfy sends (incl. SUSPECTED and any future
+      // value) so a real verdict never fails validation and drops the webhook —
+      // mapIdenfyOverallStatus decides how each one maps.
+      overall: z.string().optional(),
       autoDocument: z.string().optional(),
       autoFace: z.string().optional(),
       manualDocument: z.string().optional(),
@@ -64,10 +67,19 @@ export const mapIdenfyOverallStatus = (
     case "DENIED":
     case "EXPIRED":
       return "FAILED";
+    case "SUSPECTED":
     case "REVIEWING":
+      // Something's off (face mismatch, duplicate, data mismatch, …) or iDenfy
+      // wants a manual check — this is how an iDenfy customer lands in OUR
+      // review queue for an officer to decide.
       return "REQUIRES_REVIEW";
-    default:
+    case "ACTIVE":
+    case undefined:
       return "PENDING";
+    default:
+      // Unknown / new iDenfy status — route to a human rather than leave the
+      // customer stuck looking "in progress".
+      return "REQUIRES_REVIEW";
   }
 };
 
@@ -88,21 +100,24 @@ export const mapIdenfyToAttributes = (
   }> = [];
   const data = payload.data;
   if (data) {
+    // iDenfy payload field → canonical EAV key. Targets use
+    // identityAttributeKey() so they stay in lockstep with the shared schema
+    // (IDENTITY_VERIFICATION_FIELDS) the manual review form writes.
     const stringFields: Array<[string, string | undefined]> = [
-      ["identity_verification.document_first_name", data.docFirstName],
-      ["identity_verification.document_last_name", data.docLastName],
-      ["identity_verification.document_number", data.docNumber],
-      ["identity_verification.document_personal_code", data.docPersonalCode],
-      ["identity_verification.document_type", data.docType],
-      ["identity_verification.document_sex", data.docSex],
-      ["identity_verification.document_nationality", data.docNationality],
+      [identityAttributeKey("document_first_name"), data.docFirstName],
+      [identityAttributeKey("document_last_name"), data.docLastName],
+      [identityAttributeKey("document_number"), data.docNumber],
+      [identityAttributeKey("document_personal_code"), data.docPersonalCode],
+      [identityAttributeKey("document_type"), data.docType],
+      [identityAttributeKey("document_sex"), data.docSex],
+      [identityAttributeKey("document_nationality"), data.docNationality],
       [
-        "identity_verification.document_issuing_country",
+        identityAttributeKey("document_issuing_country"),
         data.docIssuingCountry,
       ],
-      ["identity_verification.full_name", data.fullName],
-      ["identity_verification.selected_country", data.selectedCountry],
-      ["identity_verification.address", data.address],
+      [IDENTITY_DERIVED_KEYS.fullName, data.fullName],
+      [identityAttributeKey("selected_country"), data.selectedCountry],
+      [identityAttributeKey("address"), data.address],
     ];
     for (const [attribute, value] of stringFields) {
       if (value !== undefined && value !== "") {
@@ -110,9 +125,9 @@ export const mapIdenfyToAttributes = (
       }
     }
     const dateFields: Array<[string, string | undefined]> = [
-      ["identity_verification.document_expiry", data.docExpiry],
-      ["identity_verification.document_date_of_issue", data.docDateOfIssue],
-      ["identity_verification.date_of_birth", data.docDob],
+      [identityAttributeKey("document_expiry"), data.docExpiry],
+      [identityAttributeKey("document_date_of_issue"), data.docDateOfIssue],
+      [identityAttributeKey("date_of_birth"), data.docDob],
     ];
     for (const [attribute, value] of dateFields) {
       if (value !== undefined && value !== "") {
@@ -122,13 +137,13 @@ export const mapIdenfyToAttributes = (
   }
   if (payload.status?.overall) {
     out.push({
-      attribute: "identity_verification.provider_decision",
+      attribute: IDENTITY_DERIVED_KEYS.providerDecision,
       value: payload.status.overall,
       attributeType: "STRING",
     });
   }
   out.push({
-    attribute: "identity_verification.provider_scan_ref",
+    attribute: IDENTITY_DERIVED_KEYS.providerScanRef,
     value: payload.scanRef,
     attributeType: "STRING",
   });

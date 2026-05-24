@@ -38,7 +38,14 @@ const flattenIpQualityScorePayload = (
       });
     }
   }
-  for (const flag of ["vpn", "tor", "proxy", "is_crawler"] as const) {
+  for (const flag of [
+    "vpn",
+    "tor",
+    "proxy",
+    "is_crawler",
+    "recent_abuse",
+    "bot_status",
+  ] as const) {
     const value = rawPayload[flag];
     if (typeof value === "boolean") {
       out.push({
@@ -46,6 +53,19 @@ const flattenIpQualityScorePayload = (
         value: String(value),
         attributeType: "BOOLEAN",
       });
+    }
+  }
+  // String enrichment fields. Note IPQS returns ISP upper-cased in the payload.
+  const stringFields: Array<[string, string]> = [
+    ["connection_type", "fraud_detection.connection_type"],
+    ["ISP", "fraud_detection.isp"],
+    ["region", "fraud_detection.region"],
+    ["city", "fraud_detection.city"],
+  ];
+  for (const [field, attribute] of stringFields) {
+    const value = rawPayload[field];
+    if (typeof value === "string" && value.trim() !== "") {
+      out.push({ attribute, value, attributeType: "STRING" });
     }
   }
   return out;

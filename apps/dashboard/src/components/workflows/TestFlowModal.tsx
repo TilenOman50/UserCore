@@ -19,11 +19,11 @@ export const TestFlowModal = ({ sessionId, onClose }: Props) => {
       if (!e.data || typeof e.data !== "object") return;
       if (e.data.type === "usercore.widget.close") {
         onClose();
-        return;
       }
-      if (e.data.type === "usercore.widget.complete") {
-        setTimeout(onClose, 1200);
-      }
+      // Intentionally do NOT auto-close on "usercore.widget.complete": the
+      // success screen lets the customer add a notification email + see what's
+      // next, so we keep it open until they close it themselves (the widget's
+      // own X, Esc, or backdrop) — matching the phone (standalone) behaviour.
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);

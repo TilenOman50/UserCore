@@ -90,3 +90,163 @@ export const emailT = (
   const resolved = locale && isSupported(locale) ? BUNDLES[locale] : BUNDLES.en;
   return interpolate(resolved[key], vars);
 };
+
+// Resubmission-request email — sent when an officer bounces a session back to
+// the customer to redo one or more steps. Same locale set + brand
+// interpolation as the OTP email.
+type ResubmissionBundle = {
+  subject: string;
+  heading: string;
+  intro: string;
+  cta: string;
+};
+
+const RESUBMISSION_BUNDLES: Record<EmailLocale, ResubmissionBundle> = {
+  en: {
+    subject: "Action needed on your {brand} verification",
+    heading: "We need a bit more from you",
+    intro:
+      "Your {brand} verification needs a few items resubmitted. Reopen the verification to continue where you left off.",
+    cta: "Continue verification",
+  },
+  sl: {
+    subject: "Potrebno je dejanje pri preverjanju {brand}",
+    heading: "Potrebujemo še nekaj podatkov",
+    intro:
+      "Pri preverjanju {brand} je treba znova oddati nekaj elementov. Znova odprite preverjanje in nadaljujte, kjer ste končali.",
+    cta: "Nadaljuj preverjanje",
+  },
+  de: {
+    subject: "Aktion für Ihre {brand}-Verifizierung erforderlich",
+    heading: "Wir brauchen noch etwas von Ihnen",
+    intro:
+      "Für Ihre {brand}-Verifizierung müssen einige Punkte erneut eingereicht werden. Öffnen Sie die Verifizierung erneut, um fortzufahren.",
+    cta: "Verifizierung fortsetzen",
+  },
+  fr: {
+    subject: "Action requise pour votre vérification {brand}",
+    heading: "Il nous manque quelques éléments",
+    intro:
+      "Votre vérification {brand} nécessite de soumettre à nouveau quelques éléments. Rouvrez la vérification pour continuer.",
+    cta: "Continuer la vérification",
+  },
+  es: {
+    subject: "Se requiere una acción en su verificación de {brand}",
+    heading: "Necesitamos algo más de usted",
+    intro:
+      "Su verificación de {brand} requiere reenviar algunos elementos. Vuelva a abrir la verificación para continuar.",
+    cta: "Continuar la verificación",
+  },
+};
+
+export const emailResubmissionT = (
+  locale: string | null | undefined,
+  key: keyof ResubmissionBundle,
+  vars: Record<string, string>,
+): string => {
+  const resolved =
+    locale && isSupported(locale)
+      ? RESUBMISSION_BUNDLES[locale]
+      : RESUBMISSION_BUNDLES.en;
+  return interpolate(resolved[key], vars);
+};
+
+// Final decision (approved / rejected) notice — so a customer who closed the
+// widget still learns the outcome. Same locale set + brand interpolation.
+type DecisionBundle = {
+  subject: string;
+  heading: string;
+  intro: string;
+  cta: string;
+};
+
+const DECISION_BUNDLES: Record<
+  "approved" | "rejected",
+  Record<EmailLocale, DecisionBundle>
+> = {
+  approved: {
+    en: {
+      subject: "Your {brand} verification is approved",
+      heading: "You're verified",
+      intro:
+        "Your {brand} verification has been approved — you're all set, no further action needed.",
+      cta: "View status",
+    },
+    sl: {
+      subject: "Vaše preverjanje {brand} je odobreno",
+      heading: "Preverjeni ste",
+      intro:
+        "Vaše preverjanje {brand} je bilo odobreno — vse je urejeno, nadaljnji koraki niso potrebni.",
+      cta: "Poglej stanje",
+    },
+    de: {
+      subject: "Ihre {brand}-Verifizierung ist bestätigt",
+      heading: "Sie sind verifiziert",
+      intro:
+        "Ihre {brand}-Verifizierung wurde genehmigt — alles erledigt, keine weiteren Schritte nötig.",
+      cta: "Status ansehen",
+    },
+    fr: {
+      subject: "Votre vérification {brand} est approuvée",
+      heading: "Vous êtes vérifié",
+      intro:
+        "Votre vérification {brand} a été approuvée — tout est en ordre, aucune action supplémentaire requise.",
+      cta: "Voir le statut",
+    },
+    es: {
+      subject: "Su verificación de {brand} está aprobada",
+      heading: "Está verificado",
+      intro:
+        "Su verificación de {brand} ha sido aprobada — todo listo, no se requiere ninguna acción más.",
+      cta: "Ver estado",
+    },
+  },
+  rejected: {
+    en: {
+      subject: "Update on your {brand} verification",
+      heading: "Your verification wasn't approved",
+      intro:
+        "Unfortunately your {brand} verification couldn't be approved. If you believe this is a mistake, please contact support.",
+      cta: "View status",
+    },
+    sl: {
+      subject: "Posodobitev preverjanja {brand}",
+      heading: "Vaše preverjanje ni bilo odobreno",
+      intro:
+        "Žal vašega preverjanja {brand} ni bilo mogoče odobriti. Če menite, da je to napaka, se obrnite na podporo.",
+      cta: "Poglej stanje",
+    },
+    de: {
+      subject: "Update zu Ihrer {brand}-Verifizierung",
+      heading: "Ihre Verifizierung wurde nicht genehmigt",
+      intro:
+        "Leider konnte Ihre {brand}-Verifizierung nicht genehmigt werden. Wenn Sie glauben, dass dies ein Fehler ist, wenden Sie sich an den Support.",
+      cta: "Status ansehen",
+    },
+    fr: {
+      subject: "Mise à jour de votre vérification {brand}",
+      heading: "Votre vérification n'a pas été approuvée",
+      intro:
+        "Malheureusement, votre vérification {brand} n'a pas pu être approuvée. Si vous pensez qu'il s'agit d'une erreur, contactez le support.",
+      cta: "Voir le statut",
+    },
+    es: {
+      subject: "Actualización sobre su verificación de {brand}",
+      heading: "Su verificación no fue aprobada",
+      intro:
+        "Lamentablemente, su verificación de {brand} no pudo ser aprobada. Si cree que es un error, contacte con soporte.",
+      cta: "Ver estado",
+    },
+  },
+};
+
+export const emailDecisionT = (
+  decision: "approved" | "rejected",
+  locale: string | null | undefined,
+  key: keyof DecisionBundle,
+  vars: Record<string, string>,
+): string => {
+  const set = DECISION_BUNDLES[decision];
+  const resolved = locale && isSupported(locale) ? set[locale] : set.en;
+  return interpolate(resolved[key], vars);
+};

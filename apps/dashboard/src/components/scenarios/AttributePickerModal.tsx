@@ -6,7 +6,7 @@ import {
   type AttributeDefinition,
 } from "@usercore/shared-types";
 
-const TYPE_BADGE_COLORS: Record<AttributeDefinition["type"], string> = {
+export const TYPE_BADGE_COLORS: Record<AttributeDefinition["type"], string> = {
   string: "bg-blue-100 text-blue-700",
   number: "bg-purple-100 text-purple-700",
   boolean: "bg-amber-100 text-amber-700",

@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import type { Logger } from "@usercore/logger";
 import type {
@@ -72,7 +72,32 @@ export const createWorkflowSessionStepsRepository = (props: {
     });
   };
 
-  return { upsert, findBySessionId, findBySessionAndStep };
+  // Remove step rows — used to reset a manual scan's verdict (id-scan /
+  // face-scan) when a reviewer bounces it back, so a prior Approve/Reject
+  // doesn't carry over onto the customer's new submission.
+  const deleteBySessionAndSteps = async (
+    sessionId: string,
+    steps: string[],
+  ) => {
+    if (steps.length === 0) return;
+    await db.delete(WorkflowSessionStepTable).where(
+      and(
+        eq(WorkflowSessionStepTable.sessionId, sessionId),
+        // Callers pass plain strings; the column is the step enum.
+        inArray(
+          WorkflowSessionStepTable.step,
+          steps as WorkflowSessionStepType[],
+        ),
+      ),
+    );
+  };
+
+  return {
+    upsert,
+    findBySessionId,
+    findBySessionAndStep,
+    deleteBySessionAndSteps,
+  };
 };
 
 export type WorkflowSessionStepsRepository = ReturnType<

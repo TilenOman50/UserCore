@@ -3,7 +3,12 @@ import { createTransport } from "nodemailer";
 import type { Logger } from "@usercore/logger";
 
 import { env } from "../../env";
-import { emailT, type EmailLocale } from "./emailI18n";
+import {
+  emailDecisionT,
+  emailResubmissionT,
+  emailT,
+  type EmailLocale,
+} from "./emailI18n";
 
 // Two-letter capitalised initial — falls back to "?" so the tile never renders
 // blank. Used as the in-email logo when no brand logo URL is available.
@@ -105,7 +110,123 @@ export const createMailer = (props: { logger: Logger }) => {
     });
   };
 
-  return { sendVerificationOtp };
+  const sendResubmissionRequest = async (data: {
+    to: string;
+    brandName: string;
+    primaryColor: string;
+    logo: { body: Buffer; contentType: string } | null;
+    senderEmail: string | null;
+    locale: EmailLocale | string | null | undefined;
+    // Optional officer note ("your ID photo was blurry").
+    note: string | null;
+    // Deep link back into the widget so the customer resumes the flow.
+    resumeUrl: string;
+  }) => {
+    const vars = { brand: data.brandName };
+    const subject = emailResubmissionT(data.locale, "subject", vars);
+    const heading = emailResubmissionT(data.locale, "heading", vars);
+    const intro = emailResubmissionT(data.locale, "intro", vars);
+    const cta = emailResubmissionT(data.locale, "cta", vars);
+
+    const noteHtml = data.note
+      ? `<p style="margin: 0 0 24px; font-size: 14px; color: #374151; text-align: center; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px;">${data.note}</p>`
+      : "";
+
+    const html = wrap({
+      brandName: data.brandName,
+      primaryColor: data.primaryColor,
+      hasLogo: data.logo !== null,
+      innerHtml: `
+        <h2 style="margin: 0 0 8px; font-size: 20px; color: #111827; text-align: center;">${heading}</h2>
+        <p style="margin: 0 0 16px; font-size: 14px; color: #6b7280; text-align: center;">${intro}</p>
+        ${noteHtml}
+        <div style="text-align: center;">
+          <a href="${data.resumeUrl}" style="display: inline-block; padding: 12px 20px; background: ${data.primaryColor}; color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 14px;">${cta}</a>
+        </div>
+      `,
+    });
+    const fromAddress = data.senderEmail ?? env.SMTP_FROM;
+    await transport.sendMail({
+      from: `${escapeFromName(data.brandName)} <${fromAddress}>`,
+      to: data.to,
+      subject,
+      html,
+      text: `${heading}\n\n${intro}${data.note ? `\n\n${data.note}` : ""}\n\n${cta}: ${data.resumeUrl}`,
+      attachments: data.logo
+        ? [
+            {
+              cid: LOGO_CID,
+              filename: `brand-logo`,
+              content: data.logo.body,
+              contentType: data.logo.contentType,
+            },
+          ]
+        : undefined,
+    });
+    logger.info({
+      msg: "Resubmission request sent",
+      to: data.to,
+      from: fromAddress,
+    });
+  };
+
+  // Final decision (approved/rejected) notice. Mirrors the resubmission mail:
+  // localized strings, brand logo as a CID attachment, deep link to reopen.
+  const sendDecisionNotice = async (data: {
+    to: string;
+    brandName: string;
+    primaryColor: string;
+    logo: { body: Buffer; contentType: string } | null;
+    senderEmail: string | null;
+    locale: EmailLocale | string | null | undefined;
+    decision: "approved" | "rejected";
+    resumeUrl: string;
+  }) => {
+    const vars = { brand: data.brandName };
+    const subject = emailDecisionT(data.decision, data.locale, "subject", vars);
+    const heading = emailDecisionT(data.decision, data.locale, "heading", vars);
+    const intro = emailDecisionT(data.decision, data.locale, "intro", vars);
+    const cta = emailDecisionT(data.decision, data.locale, "cta", vars);
+
+    const html = wrap({
+      brandName: data.brandName,
+      primaryColor: data.primaryColor,
+      hasLogo: data.logo !== null,
+      innerHtml: `
+        <h2 style="margin: 0 0 8px; font-size: 20px; color: #111827; text-align: center;">${heading}</h2>
+        <p style="margin: 0 0 16px; font-size: 14px; color: #6b7280; text-align: center;">${intro}</p>
+        <div style="text-align: center;">
+          <a href="${data.resumeUrl}" style="display: inline-block; padding: 12px 20px; background: ${data.primaryColor}; color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 14px;">${cta}</a>
+        </div>
+      `,
+    });
+    const fromAddress = data.senderEmail ?? env.SMTP_FROM;
+    await transport.sendMail({
+      from: `${escapeFromName(data.brandName)} <${fromAddress}>`,
+      to: data.to,
+      subject,
+      html,
+      text: `${heading}\n\n${intro}\n\n${cta}: ${data.resumeUrl}`,
+      attachments: data.logo
+        ? [
+            {
+              cid: LOGO_CID,
+              filename: `brand-logo`,
+              content: data.logo.body,
+              contentType: data.logo.contentType,
+            },
+          ]
+        : undefined,
+    });
+    logger.info({
+      msg: "Decision notice sent",
+      to: data.to,
+      from: fromAddress,
+      decision: data.decision,
+    });
+  };
+
+  return { sendVerificationOtp, sendResubmissionRequest, sendDecisionNotice };
 };
 
 export type Mailer = ReturnType<typeof createMailer>;

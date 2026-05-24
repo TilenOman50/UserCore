@@ -1,5 +1,6 @@
 import {
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -39,6 +40,24 @@ export const createStorageService = (props: { logger: Logger }) => {
     return props.key;
   };
 
+  // Object metadata (content type + byte size) without downloading the body.
+  // Used to label the reviewer's image viewer. Best-effort: a failed head
+  // shouldn't break rendering the image, so callers get nulls on error.
+  const headFile = async (key: string) => {
+    try {
+      const res = await client.send(
+        new HeadObjectCommand({ Bucket: env.MINIO_BUCKET, Key: key }),
+      );
+      return {
+        contentType: res.ContentType ?? null,
+        size: typeof res.ContentLength === "number" ? res.ContentLength : null,
+      };
+    } catch (err) {
+      logger.warn({ msg: "headFile failed", key, err });
+      return { contentType: null, size: null };
+    }
+  };
+
   const getSignedDownloadUrl = async (key: string, expiresInSeconds = 3600) => {
     const command = new GetObjectCommand({
       Bucket: env.MINIO_BUCKET,
@@ -62,7 +81,7 @@ export const createStorageService = (props: { logger: Logger }) => {
     };
   };
 
-  return { uploadFile, getSignedDownloadUrl, getObject };
+  return { uploadFile, getSignedDownloadUrl, getObject, headFile };
 };
 
 export type StorageService = ReturnType<typeof createStorageService>;

@@ -8,11 +8,11 @@ import { WorkspaceSwitcher } from "../features/workspace/WorkspaceSwitcher";
 import { signOut } from "../lib/authClient";
 import { useWorkspace } from "../lib/workspaceContext";
 
-const navItems = [
+export const navItems = [
   { path: "/", label: "Overview" },
   { path: "/customers", label: "Customers" },
-  { path: "/workflows", label: "Workflows" },
   { path: "/kyc-review", label: "KYC Review" },
+  { path: "/workflows", label: "Workflows" },
   { path: "/scenarios", label: "Scenarios" },
   { path: "/providers", label: "Providers" },
   { path: "/settings", label: "Settings" },
