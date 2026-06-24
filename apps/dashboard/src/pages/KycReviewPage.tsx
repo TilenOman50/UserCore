@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import {
   AlertTriangle,
   Archive,
+  ArrowDown,
+  ArrowUp,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -18,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Modal } from "../components/Modal";
 import { COUNTRIES } from "../lib/countries";
+import { formatDateTime } from "../lib/dates";
 import { usePreferences } from "../lib/hooks/usePreferences";
 import {
   useArchiveSession,
@@ -25,10 +28,17 @@ import {
   type ReviewQueueFilter,
   type ReviewQueueRow,
   type ReviewQueueStatus,
+  type ReviewSortField,
 } from "../lib/hooks/useWorkflowSessions";
 import { useWorkspace } from "../lib/workspaceContext";
 
 const PAGE_SIZE = 20;
+
+const SORT_FIELDS: ReviewSortField[] = [
+  "createdAt",
+  "verificationMode",
+  "reviewStatus",
+];
 
 type StatusFilter = ReviewQueueFilter;
 type ModeFilter = "all" | "sandbox" | "production";
@@ -92,6 +102,33 @@ const STATUS_BADGE: Record<
   },
 };
 
+// Sortable column header — clickable, shows a direction arrow only when active.
+const SortableTh = ({
+  field,
+  label,
+  sortBy,
+  sortDir,
+  onSort,
+}: {
+  field: ReviewSortField;
+  label: string;
+  sortBy: ReviewSortField;
+  sortDir: "asc" | "desc";
+  onSort: (field: ReviewSortField) => void;
+}) => (
+  <th className="px-4 py-3">
+    <button
+      type="button"
+      onClick={() => onSort(field)}
+      className="inline-flex h-4 items-center gap-1 align-middle uppercase leading-none hover:text-gray-700"
+    >
+      {label}
+      {sortBy === field &&
+        (sortDir === "asc" ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
+    </button>
+  </th>
+);
+
 export const KycReviewPage = () => {
   const { workspace, user } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
@@ -107,6 +144,8 @@ export const KycReviewPage = () => {
     status?: string;
     mode?: string;
     search?: string;
+    sortBy?: string;
+    sortDir?: string;
   };
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<StatusFilter>(() =>
@@ -121,6 +160,14 @@ export const KycReviewPage = () => {
   );
   const [searchInput, setSearchInput] = useState(savedFilters.search ?? "");
   const [search, setSearch] = useState(savedFilters.search ?? "");
+  const [sortBy, setSortBy] = useState<ReviewSortField>(() =>
+    SORT_FIELDS.includes(savedFilters.sortBy as ReviewSortField)
+      ? (savedFilters.sortBy as ReviewSortField)
+      : "createdAt",
+  );
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(() =>
+    savedFilters.sortDir === "asc" ? "asc" : "desc",
+  );
 
   // Persist the current filter triple; the hook debounces the server write and
   // updates the localStorage cache immediately. `touched` blocks a late server
@@ -132,7 +179,24 @@ export const KycReviewPage = () => {
     search: string;
   }) => {
     touchedRef.current = true;
-    setPreference("reviewQueue", next);
+    setPreference("reviewQueue", { ...next, sortBy, sortDir });
+  };
+
+  // Click a sortable header: same column flips direction, a new column starts
+  // descending. Resets to page 1 and persists alongside the filters.
+  const handleSort = (field: ReviewSortField) => {
+    const dir = sortBy === field && sortDir === "desc" ? "asc" : "desc";
+    setSortBy(field);
+    setSortDir(dir);
+    resetToFirstPage();
+    touchedRef.current = true;
+    setPreference("reviewQueue", {
+      status,
+      mode,
+      search,
+      sortBy: field,
+      sortDir: dir,
+    });
   };
 
   // Hydrate from the SERVER once it loads — covers a cleared localStorage cache
@@ -158,6 +222,12 @@ export const KycReviewPage = () => {
       setSearch(rq.search);
       setSearchInput(rq.search);
     }
+    if (SORT_FIELDS.includes(rq.sortBy as ReviewSortField)) {
+      setSortBy(rq.sortBy as ReviewSortField);
+    }
+    if (rq.sortDir === "asc" || rq.sortDir === "desc") {
+      setSortDir(rq.sortDir);
+    }
   }, [prefsLoaded, preferences]);
 
   // Multi-select for bulk archive. Cleared whenever the visible set changes so
@@ -173,6 +243,8 @@ export const KycReviewPage = () => {
     status,
     mode: mode === "all" ? undefined : mode,
     search: search || undefined,
+    sortBy,
+    sortDir,
   });
 
   const data = query.data;
@@ -370,9 +442,27 @@ export const KycReviewPage = () => {
               </th>
               <th className="px-4 py-3">Customer</th>
               <th className="px-4 py-3">Country</th>
-              <th className="px-4 py-3">Mode</th>
-              <th className="px-4 py-3">Submitted</th>
-              <th className="px-4 py-3">Status</th>
+              <SortableTh
+                field="verificationMode"
+                label="Mode"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={handleSort}
+              />
+              <SortableTh
+                field="createdAt"
+                label="Submitted"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={handleSort}
+              />
+              <SortableTh
+                field="reviewStatus"
+                label="Status"
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={handleSort}
+              />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -592,7 +682,7 @@ const ReviewRow = ({
         </span>
       </td>
       <td className="px-4 py-3 text-gray-500">
-        {new Date(row.createdAt).toLocaleString()}
+        {formatDateTime(row.createdAt)}
       </td>
       <td className="px-4 py-3">
         <span

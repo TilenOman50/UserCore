@@ -206,6 +206,20 @@ export const createWorkflowSessionsRouter = (props: {
     },
   );
 
+  // Workspace-scoped verification counts (this month + all-time) for the
+  // overview cards.
+  app.get(
+    "/workflow-sessions/workspace/:workspaceId/verification-stats",
+    async (c) => {
+      const { workspaceId } = c.req.param();
+      const stats =
+        await workflowSessionsService.getWorkspaceVerificationStats(
+          workspaceId,
+        );
+      return c.json(stats, 200);
+    },
+  );
+
   // Multipart file upload — stored to MinIO; an EAV attribute holds the key.
   app.post("/workflow-sessions/:id/files/:kind", async (c) => {
     const { id, kind } = c.req.param();
@@ -395,6 +409,10 @@ export const createWorkflowSessionsRouter = (props: {
               .optional(),
             mode: WorkflowVerificationModeEnum.optional(),
             search: z.string().optional(),
+            sortBy: z
+              .enum(["createdAt", "verificationMode", "reviewStatus"])
+              .optional(),
+            sortDir: z.enum(["asc", "desc"]).optional(),
           }),
         },
         responses: {
@@ -428,7 +446,8 @@ export const createWorkflowSessionsRouter = (props: {
       }),
       async (c) => {
         const { workspaceId } = c.req.valid("param");
-        const { page, limit, status, mode, search } = c.req.valid("query");
+        const { page, limit, status, mode, search, sortBy, sortDir } =
+          c.req.valid("query");
         const result = await workflowSessionsService.listReviewQueuePaginated({
           workspaceId,
           page,
@@ -436,6 +455,8 @@ export const createWorkflowSessionsRouter = (props: {
           status,
           mode,
           search,
+          sortBy,
+          sortDir,
         });
         return c.json(
           {

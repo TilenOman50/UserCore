@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, Workflow } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+import { formatDate } from "../lib/dates";
 import {
   UPGRADE_HINT,
   useCanManageConfig,
@@ -178,11 +179,6 @@ const ScenarioRow = ({
         <div className="text-xs text-gray-400 font-mono mt-0.5">
           {scenario.id}
         </div>
-        {scenario.description && (
-          <div className="text-xs text-gray-500 mt-0.5 line-clamp-1">
-            {scenario.description}
-          </div>
-        )}
       </td>
       <td className="px-6 py-4">
         <span
@@ -198,7 +194,7 @@ const ScenarioRow = ({
         </span>
       </td>
       <td className="px-6 py-4 text-sm text-gray-500 text-right">
-        {new Date(scenario.createdAt).toLocaleDateString()}
+        {formatDate(scenario.createdAt)}
       </td>
     </tr>
   );

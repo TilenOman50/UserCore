@@ -14,9 +14,11 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.74.4",
+    "@tanstack/react-table": "^8.21.3",
     "@usercore/shared-types": "workspace:*",
     "better-auth": "^1.2.7",
     "cmdk": "^1.1.1",
+    "echarts": "^6.1.0",
     "flag-icons": "^7.5.0",
     "lucide-react": "^1.11.0",
     "qrcode.react": "^4.2.0",

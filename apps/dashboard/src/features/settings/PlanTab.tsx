@@ -1,14 +1,14 @@
-import { Check } from "lucide-react";
+import { Check, Mail } from "lucide-react";
 
 import {
   getPlanFeatures,
   isUnlimited,
-  PLAN_LABELS,
   PLANS,
   type Plan,
   type PlanFeatures,
 } from "@usercore/shared-types";
 
+import { PlanBadge } from "../../components/PlanBadge";
 import { useWorkspace } from "../../lib/workspaceContext";
 
 type FeatureRow = {
@@ -95,10 +95,8 @@ export const PlanTab = () => {
         <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
           Current plan
         </div>
-        <div className="flex items-baseline gap-3">
-          <h2 className="text-2xl font-bold text-gray-900">
-            {PLAN_LABELS[currentPlan]}
-          </h2>
+        <div className="flex items-center gap-3">
+          <PlanBadge plan={currentPlan} size="md" />
           <span className="text-sm text-gray-500">for {organization.name}</span>
         </div>
         <p className="text-sm text-gray-500 mt-2">
@@ -114,13 +112,11 @@ export const PlanTab = () => {
             <div
               key={plan}
               className={`px-5 py-4 border-b border-gray-200 ${
-                plan === currentPlan ? "bg-primary-50" : "bg-gray-50"
+                plan === currentPlan ? "bg-primary-50" : "bg-gray-50 opacity-50"
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <div className="text-sm font-bold text-gray-900">
-                  {PLAN_LABELS[plan]}
-                </div>
+                <PlanBadge plan={plan} size="md" />
                 {plan === currentPlan && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-primary-200 text-primary-800">
                     <Check size={10} />
@@ -149,6 +145,20 @@ export const PlanTab = () => {
           </div>
         ))}
       </div>
+
+      <div className="flex flex-col items-center gap-3 rounded-2xl border border-gray-200 bg-white p-6 text-center">
+        <p className="text-sm text-gray-600">
+          Need a different plan? Plans are sales-led — our team will help you
+          pick the right tier for {organization.name}.
+        </p>
+        <a
+          href="mailto:sales@usercore.com?subject=Plan%20enquiry"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary-200 px-4 py-2 text-sm font-medium text-primary-800 hover:bg-primary-300"
+        >
+          <Mail size={16} />
+          Contact sales
+        </a>
+      </div>
     </div>
   );
 };
@@ -162,7 +172,7 @@ const PlanCell = ({
 }) => (
   <div
     className={`px-5 py-3 text-sm ${
-      highlighted ? "bg-primary-50/50 text-gray-900" : "text-gray-700"
+      highlighted ? "bg-primary-50/50 text-gray-900" : "text-gray-400"
     } ${value === "—" ? "text-gray-300" : ""}`}
   >
     {value}

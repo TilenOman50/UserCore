@@ -8,6 +8,7 @@ import {
   useUploadBrandingLogo,
   type WorkflowBranding,
 } from "../../lib/hooks/useWorkflows";
+import { PlanBadge } from "../PlanBadge";
 
 type Props = {
   workflowId: string;
@@ -210,7 +211,7 @@ export const BrandingSection = ({ workflowId, branding, canEdit }: Props) => {
                 <label className="block text-xs font-medium text-gray-700">
                   Brand name
                 </label>
-                {!customBranding && <PlanPill plan="Growth" />}
+                {!customBranding && <PlanBadge plan="GROWTH" />}
               </div>
               <input
                 type="text"
@@ -232,7 +233,7 @@ export const BrandingSection = ({ workflowId, branding, canEdit }: Props) => {
               onChange={setPrimaryColor}
               placeholder={DEFAULT_PRIMARY}
               disabled={!customBranding}
-              pill={!customBranding ? <PlanPill plan="Growth" /> : null}
+              pill={!customBranding ? <PlanBadge plan="GROWTH" /> : null}
             />
 
             <ColorRow
@@ -242,7 +243,7 @@ export const BrandingSection = ({ workflowId, branding, canEdit }: Props) => {
               onChange={setSecondaryColor}
               placeholder={DEFAULT_SECONDARY}
               disabled={!customBranding}
-              pill={!customBranding ? <PlanPill plan="Growth" /> : null}
+              pill={!customBranding ? <PlanBadge plan="GROWTH" /> : null}
             />
 
             <div
@@ -252,7 +253,7 @@ export const BrandingSection = ({ workflowId, branding, canEdit }: Props) => {
                 <label className="block text-xs font-medium text-gray-700">
                   Logo
                 </label>
-                {!customBranding && <PlanPill plan="Growth" />}
+                {!customBranding && <PlanBadge plan="GROWTH" />}
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-20 h-20 rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
@@ -321,7 +322,7 @@ export const BrandingSection = ({ workflowId, branding, canEdit }: Props) => {
                 >
                   Verification email sender
                 </label>
-                {!whiteLabel && <PlanPill plan="Enterprise" />}
+                {!whiteLabel && <PlanBadge plan="ENTERPRISE" />}
               </div>
               <p className="text-xs text-gray-500 mb-2">
                 Customers receive the OTP email from this address — match it to
@@ -350,7 +351,7 @@ export const BrandingSection = ({ workflowId, branding, canEdit }: Props) => {
                   <div className="text-sm font-medium text-gray-900">
                     Hide &quot;Powered by UserCore&quot; footer
                   </div>
-                  {!whiteLabel && <PlanPill plan="Enterprise" />}
+                  {!whiteLabel && <PlanBadge plan="ENTERPRISE" />}
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5">
                   Remove the UserCore attribution from the widget chrome.
@@ -422,20 +423,4 @@ const ColorRow = ({
     </div>
     <p className="mt-1 text-xs text-gray-400">{hint}</p>
   </div>
-);
-
-// Inline tier badge — points the reviewer at which plan unlocks a control.
-// Shown next to a field label whenever the current plan doesn't include it,
-// so officers don't have to guess what they'd get for upgrading.
-const PlanPill = ({ plan }: { plan: "Growth" | "Enterprise" }) => (
-  <span
-    className={`inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${
-      plan === "Enterprise"
-        ? "bg-violet-100 text-violet-700"
-        : "bg-blue-100 text-blue-700"
-    }`}
-    title={`Available on the ${plan} plan`}
-  >
-    {plan}
-  </span>
 );

@@ -10,6 +10,7 @@ import type {
 } from "@usercore/shared-types";
 import {
   atLimit,
+  CUSTOMER_RISK_LEVELS,
   EVENTS,
   getPlanFeatures,
   IDENTITY_DERIVED_KEYS,
@@ -17,6 +18,7 @@ import {
   identityAttributeKey,
   kycReasonLabel,
   PROVIDER_EVENTS,
+  type CustomerRiskLevel,
   type KycCompletedPayload,
   type ProviderCheckRequestedPayload,
 } from "@usercore/shared-types";
@@ -323,6 +325,18 @@ export const createWorkflowSessionsService = (props: {
     };
   };
 
+  // Workspace-scoped verification counts for the overview cards (this month +
+  // all-time). Separate from the org cap, which spans every workspace.
+  const getWorkspaceVerificationStats = async (workspaceId: string) => {
+    const [thisMonth, total] = await Promise.all([
+      workflowSessionsRepository.countForWorkspace(workspaceId, {
+        currentMonth: true,
+      }),
+      workflowSessionsRepository.countForWorkspace(workspaceId),
+    ]);
+    return { thisMonth, total };
+  };
+
   const getSession = async (id: string) => {
     const session = await workflowSessionsRepository.findById(id);
     if (!session) return null;
@@ -474,6 +488,8 @@ export const createWorkflowSessionsService = (props: {
     status?: ReviewQueueFilter;
     mode?: WorkflowVerificationMode;
     search?: string;
+    sortBy?: "createdAt" | "verificationMode" | "reviewStatus";
+    sortDir?: "asc" | "desc";
   }) => {
     const { rows, total } =
       await workflowSessionsRepository.listForReviewQueuePaginated(data);
@@ -1732,6 +1748,35 @@ export const createWorkflowSessionsService = (props: {
       return null;
     }
 
+    // Carry the customer's risk classification onto the profile — derived from
+    // the AML screening result for this session (else "unknown").
+    const sessionAttributes =
+      await workflowSessionAttributesRepository.findBySessionId(session.id);
+    const amlRisk = sessionAttributes.find(
+      (a) => a.attribute === "aml_screening.risk_level",
+    )?.value;
+    const riskLevel: CustomerRiskLevel | undefined = (
+      CUSTOMER_RISK_LEVELS as readonly string[]
+    ).includes(amlRisk ?? "")
+      ? (amlRisk as CustomerRiskLevel)
+      : undefined;
+
+    // Identity snapshot so identity-api can populate the customer profile.
+    const attr = (key: string) =>
+      sessionAttributes.find((a) => a.attribute === key)?.value || undefined;
+    const firstName = attr("identity_verification.document_first_name");
+    const lastName = attr("identity_verification.document_last_name");
+    const dateOfBirth = attr("identity_verification.date_of_birth");
+    const nationality = attr("identity_verification.document_nationality");
+    // The customer's canonical country prefers the ID document's issuing
+    // country (what the dashboard surfaces as the customer's country), then the
+    // convenience document_country, then the proof-of-residence address.
+    const country =
+      attr("identity_verification.country_of_residence") ??
+      attr("identity_verification.document_issuing_country") ??
+      attr("identity_verification.document_country") ??
+      attr("address.country");
+
     const reviewedAt = new Date().toISOString();
     // Append-only audit event so the dashboard timeline can show
     // "approved/rejected by X at T" (with reasons) for every decision round —
@@ -1752,6 +1797,12 @@ export const createWorkflowSessionsService = (props: {
       customerId: session.customerId,
       workspaceId: workflow.workspaceId,
       status: DECISION_TO_KYC_STATUS[data.decision],
+      riskLevel,
+      firstName,
+      lastName,
+      dateOfBirth,
+      nationality,
+      country,
       reviewedAt,
       reviewedBy: data.reviewedBy,
       reason: fullReason,
@@ -1909,6 +1960,7 @@ export const createWorkflowSessionsService = (props: {
     getSessionFileUrl,
     finalizeSession,
     getMonthlyVerificationStats,
+    getWorkspaceVerificationStats,
   };
 };
 

@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SettingsLayout } from "./components/SettingsLayout";
+import { CustomerDetailPage } from "./pages/CustomerDetailPage";
 import { CustomersPage } from "./pages/CustomersPage";
 import { KycReviewDetailPage } from "./pages/KycReviewDetailPage";
 import { KycReviewPage } from "./pages/KycReviewPage";
@@ -35,6 +36,10 @@ export const App = () => {
         <Route path="/" element={<Layout />}>
           <Route index element={<OverviewPage />} />
           <Route path="customers" element={<CustomersPage />} />
+          <Route
+            path="customers/:customerId"
+            element={<CustomerDetailPage />}
+          />
           <Route path="kyc-review" element={<KycReviewPage />} />
           <Route
             path="kyc-review/:sessionId"

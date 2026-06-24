@@ -9,7 +9,13 @@ import { useWorkspace } from "../workspaceContext";
 // apply instantly on load (no flicker waiting on the network). The server is the
 // source of truth that reconciles on fetch; localStorage is the fast cache.
 export type DashboardPreferences = {
-  reviewQueue?: { status?: string; mode?: string; search?: string };
+  reviewQueue?: {
+    status?: string;
+    mode?: string;
+    search?: string;
+    sortBy?: string;
+    sortDir?: string;
+  };
   // Future tables (customers, …) add their own keys to this blob.
   [key: string]: unknown;
 };
