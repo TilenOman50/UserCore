@@ -161,7 +161,9 @@ export const OverviewPage = () => {
             <p className="text-sm font-medium text-amber-700">Needs review</p>
             <AlertTriangle size={16} className="text-amber-500" />
           </div>
-          <p className="mt-2 text-3xl font-bold text-amber-900">{needsReview}</p>
+          <p className="mt-2 text-3xl font-bold text-amber-900">
+            {needsReview}
+          </p>
           <p className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-amber-700">
             Go to review
             <ArrowRight
@@ -188,7 +190,10 @@ export const OverviewPage = () => {
           value={wsVerifQuery.data?.total ?? 0}
           sub="this workspace"
         />
-        <VerificationsUsageCard stats={usage.data} isLoading={usage.isLoading} />
+        <VerificationsUsageCard
+          stats={usage.data}
+          isLoading={usage.isLoading}
+        />
       </div>
 
       {/* World map + recent submissions */}
@@ -298,13 +303,19 @@ const VerificationsUsageCard = ({
     : Math.min(1, stats.used / Math.max(1, stats.max));
   const pct = Math.round(ratio * 100);
   const barColor =
-    ratio >= 1 ? "bg-red-500" : ratio >= 0.8 ? "bg-yellow-500" : "bg-primary-400";
+    ratio >= 1
+      ? "bg-red-500"
+      : ratio >= 0.8
+        ? "bg-yellow-500"
+        : "bg-primary-400";
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5">
       <div className="mb-2 flex items-baseline justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-500">Organization usage</p>
+          <p className="text-sm font-medium text-gray-500">
+            Organization usage
+          </p>
           <p className="mt-2 text-2xl font-bold text-gray-900">
             {stats.used.toLocaleString()}
             <span className="text-base font-normal text-gray-400">

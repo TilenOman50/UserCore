@@ -5,11 +5,11 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 import type { Plan } from "@usercore/shared-types";
 
 import { CommandPalette } from "../features/command-palette/CommandPalette";
-import { PlanBadge } from "./PlanBadge";
 import { NewWorkspaceModal } from "../features/workspace/NewWorkspaceModal";
 import { WorkspaceSwitcher } from "../features/workspace/WorkspaceSwitcher";
 import { signOut } from "../lib/authClient";
 import { useWorkspace } from "../lib/workspaceContext";
+import { PlanBadge } from "./PlanBadge";
 
 export const navItems = [
   { path: "/", label: "Overview" },
@@ -149,9 +149,7 @@ const PlanCard = ({ plan }: { plan: Plan }) => {
 const Footer = () => (
   <footer className="border-t border-gray-200 px-8 py-5">
     <div className="flex flex-col items-center justify-between gap-1 text-xs text-gray-400 sm:flex-row">
-      <p>
-        © {new Date().getFullYear()} UserCore. All rights reserved.
-      </p>
+      <p>© {new Date().getFullYear()} UserCore. All rights reserved.</p>
       <p>Secure identity verification &amp; KYC.</p>
     </div>
   </footer>
