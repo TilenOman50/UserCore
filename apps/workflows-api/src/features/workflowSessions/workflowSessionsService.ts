@@ -23,6 +23,7 @@ import {
   type ProviderCheckRequestedPayload,
 } from "@usercore/shared-types";
 
+import type { WorkflowSession } from "../../db/schema.db";
 import { env } from "../../env";
 import type { StorageService } from "../../storage/storageService";
 import type { Mailer } from "../emailVerification/mailer";
@@ -360,6 +361,59 @@ export const createWorkflowSessionsService = (props: {
     // bounce for resubmission (the customer can only redo enabled steps).
     const enabledSteps = await getEnabledSubStepTypes(session.workflowId);
     return { session, steps, attributes, events, outstanding, enabledSteps };
+  };
+
+  // Build the customer snapshot returned by both /customers endpoints. The
+  // host's host site uses this for "display name in header", login OTP,
+  // status badges — every read path that needs identity facts after the
+  // verification flow has happened. Server-side derives from the latest
+  // workflow_session for the customer in this workspace.
+  const buildCustomerSnapshot = async (session: WorkflowSession) => {
+    const [attrs, steps] = await Promise.all([
+      workflowSessionAttributesRepository.findBySessionId(session.id),
+      workflowSessionStepsRepository.findBySessionId(session.id),
+    ]);
+    const find = (key: string) =>
+      attrs.find((a) => a.attribute === key)?.value ?? null;
+    const idStep = steps.find((s) => s.step === "identity-verification");
+    return {
+      customerId: session.customerId,
+      email: find("email_verification.email"),
+      firstName: find("identity_verification.document_first_name"),
+      lastName: find("identity_verification.document_last_name"),
+      country:
+        find("identity_verification.country_of_residence") ??
+        find("identity_verification.document_country") ??
+        null,
+      status: idStep?.status ?? null,
+      lastVerifiedAt: session.createdAt.toISOString(),
+    };
+  };
+
+  // Resolve a customer in `workspaceId` by their VERIFIED email — what the
+  // host site queries before sending a login OTP. null if no such customer.
+  const findCustomerByVerifiedEmail = async (data: {
+    workspaceId: string;
+    email: string;
+  }) => {
+    const session =
+      await workflowSessionsRepository.findRecentByVerifiedEmail(data);
+    if (!session) return null;
+    return buildCustomerSnapshot(session);
+  };
+
+  // Resolve a customer in `workspaceId` by their customerId — the workflow
+  // session that's tied to this customer in this workspace. null if there's
+  // no session yet (host registered the customerId but they haven't
+  // completed the widget).
+  const findCustomerById = async (data: {
+    workspaceId: string;
+    customerId: string;
+  }) => {
+    const session =
+      await workflowSessionsRepository.findRecentByCustomerId(data);
+    if (!session) return null;
+    return buildCustomerSnapshot(session);
   };
 
   // Runnable server-check types (AML / fraud / duplicate / rules) configured on
@@ -1944,6 +1998,8 @@ export const createWorkflowSessionsService = (props: {
   return {
     createSession,
     getSession,
+    findCustomerByVerifiedEmail,
+    findCustomerById,
     getSessionFileUrlByKey,
     listForReviewQueue,
     listReviewQueuePaginated,

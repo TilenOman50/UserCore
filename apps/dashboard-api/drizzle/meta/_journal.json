@@ -8,6 +8,13 @@
       "when": 1776006415536,
       "tag": "0000_curved_starhawk",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782334429190,
+      "tag": "0001_loving_blindfold",
+      "breakpoints": true
     }
   ]
 }

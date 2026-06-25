@@ -47,8 +47,26 @@ const params = new URLSearchParams(window.location.search);
 const sessionId = params.get("session");
 const workflowsApiUrl = params.get("workflowsApi") ?? "http://localhost:3004";
 const providersApiUrl = params.get("providersApi") ?? "http://localhost:3008";
-const mobileUrl = params.get("mobileUrl");
 const isHandoff = params.get("handoff") === "true";
+
+// Derive the "Continue on phone" handoff URL ourselves from wherever the
+// widget is hosted, so the host application never has to construct it. On
+// localhost / 127.0.0.1 we skip it because a phone on another network can't
+// reach the dev machine — the QR would be a dead end. Anything publicly
+// reachable (ngrok / a real domain) works automatically. An explicit
+// ?mobileUrl=… still wins, for hosts that want full control.
+const buildDefaultMobileUrl = (): string | null => {
+  if (isHandoff) return null;
+  const origin = window.location.origin;
+  if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
+    return null;
+  }
+  const url = new URL(window.location.href);
+  url.searchParams.set("handoff", "true");
+  url.searchParams.delete("mobileUrl");
+  return url.toString();
+};
+const mobileUrl = params.get("mobileUrl") ?? buildDefaultMobileUrl();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

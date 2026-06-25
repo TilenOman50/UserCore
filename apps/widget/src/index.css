@@ -4,6 +4,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Transparent body so when this app is iframed by a host (Stripe Checkout
+   style embed), the area outside the widget's rounded Shell card blends
+   into the host's modal backdrop instead of showing a white halo. */
+html,
+body {
+  background: transparent;
+}
+
 /* Hide native scrollbars while preserving scrollability — keeps the
    widget visually clean on long-content steps (Terms, POR address form). */
 .no-scrollbar {

@@ -92,6 +92,35 @@ layout {
         }
     }
 
+    tab name="Demo sites" {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
+        pane split_direction="vertical" {
+            pane {
+                name "landing :3009"
+                cwd "apps/landing"
+                command "pnpm"
+                args "dev"
+            }
+            pane {
+                name "mock-alpska-banka :3010"
+                cwd "apps/mock-alpska-banka"
+                command "pnpm"
+                args "dev"
+            }
+            pane {
+                name "mock-workly :3011"
+                cwd "apps/mock-workly"
+                command "pnpm"
+                args "dev"
+            }
+        }
+        pane size=2 borderless=true {
+            plugin location="zellij:status-bar"
+        }
+    }
+
     tab name="DB Studios" {
         pane size=1 borderless=true {
             plugin location="zellij:tab-bar"

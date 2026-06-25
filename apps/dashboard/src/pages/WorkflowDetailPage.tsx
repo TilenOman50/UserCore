@@ -291,11 +291,26 @@ export const WorkflowDetailPage = () => {
             />
             <div className="mt-2 flex items-center gap-2 text-xs flex-wrap">
               <span className="font-mono text-gray-400">{workflow.id}</span>
-              {workflow.isDefault && (
+              {workflow.isDefault ? (
                 <span className="px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 font-medium">
                   default
                 </span>
-              )}
+              ) : canEdit ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    update.mutate({
+                      workflowId: workflow.id,
+                      patch: { isDefault: true },
+                    })
+                  }
+                  disabled={update.isPending}
+                  title="Set as the workspace's default — used when an SDK call omits workflowId."
+                  className="px-2 py-0.5 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700 font-medium disabled:opacity-50"
+                >
+                  Set as default
+                </button>
+              ) : null}
               {workflow.valid ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 font-medium">
                   <Check size={12} /> Valid
@@ -959,6 +974,23 @@ const CONFIGURABLE_SUB_STEPS = new Set<IdentityVerificationSubStepType>([
   "terms-acceptance",
 ]);
 
+// Sub-steps that strongly affect the host application's auth + comms model.
+// Email is the obvious one — without a verified email, the host has no
+// reliable way to reach the customer (status changes, resubmission requests)
+// or to authenticate them after approval (email + OTP login is the standard
+// pattern for KYC-gated products). Compliance can still turn it off, but
+// they see a warning explaining what they're giving up.
+const RECOMMENDED_SUB_STEPS = new Set<IdentityVerificationSubStepType>([
+  "email-verification",
+]);
+
+const RECOMMENDED_OFF_WARNING: Partial<
+  Record<IdentityVerificationSubStepType, string>
+> = {
+  "email-verification":
+    "Without a verified email, you can't reach the customer for resubmission requests or status changes, and email + OTP login won't work. Disable only if your application collects email through another channel.",
+};
+
 const SubStepCard = ({
   subStepId,
   type,
@@ -977,6 +1009,8 @@ const SubStepCard = ({
   const Icon = SUB_STEP_ICONS[type];
   const required = type === "terms-acceptance";
   const configurable = CONFIGURABLE_SUB_STEPS.has(type);
+  const recommended = RECOMMENDED_SUB_STEPS.has(type);
+  const offWarning = RECOMMENDED_OFF_WARNING[type];
   const [expanded, setExpanded] = useState(false);
 
   // Only let the user expand when the substep is on (or always, for terms,
@@ -998,6 +1032,11 @@ const SubStepCard = ({
             <span className="text-sm font-semibold text-gray-900">
               {SUB_STEP_LABELS[type]}
             </span>
+            {recommended && (
+              <span className="inline-flex items-center rounded-full bg-primary-50 text-primary-700 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5">
+                Recommended
+              </span>
+            )}
           </div>
           <div className="text-xs text-gray-500 mt-0.5">
             {SUB_STEP_DESCRIPTIONS[type]}
@@ -1044,6 +1083,15 @@ const SubStepCard = ({
           </button>
         )}
       </div>
+
+      {recommended && !enabled && offWarning && (
+        <div className="border-t border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-2.5">
+          <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
+          <div className="text-xs text-amber-900 leading-relaxed">
+            {offWarning}
+          </div>
+        </div>
+      )}
 
       {canExpand && expanded && (
         <div className="border-t border-gray-100 p-4 bg-gray-50/50">

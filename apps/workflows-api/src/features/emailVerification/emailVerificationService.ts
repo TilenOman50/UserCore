@@ -21,7 +21,8 @@ export class EmailVerificationError extends Error {
       | "no_otp_pending"
       | "otp_expired"
       | "email_mismatch"
-      | "code_mismatch",
+      | "code_mismatch"
+      | "email_already_used",
     message: string,
   ) {
     super(message);
@@ -51,6 +52,29 @@ export const createEmailVerificationService = (props: {
     email: string;
     locale: string | null;
   }) => {
+    // Duplicate-email guard: if another customer in this workspace already
+    // verified this email, refuse a new OTP. The host's expected behaviour is
+    // "this email is already registered — please log in instead", not
+    // letting the same person create a second customer record under the
+    // same address. Workspace-scoped, so the same email CAN exist across
+    // different workspaces (Alpska + Workly = independent products).
+    const session = await sessionsRepository.findById(data.workflowSessionId);
+    const workflow = session
+      ? await workflowsRepository.findById(session.workflowId)
+      : null;
+    if (session && workflow) {
+      const existing = await sessionsRepository.findRecentByVerifiedEmail({
+        workspaceId: workflow.workspaceId,
+        email: data.email,
+      });
+      if (existing && existing.customerId !== session.customerId) {
+        throw new EmailVerificationError(
+          "email_already_used",
+          "This email is already registered — please sign in instead.",
+        );
+      }
+    }
+
     const otp = generateOtp();
     await attributesRepository.batchUpsert({
       workflowSessionId: data.workflowSessionId,
@@ -77,10 +101,8 @@ export const createEmailVerificationService = (props: {
     // from the host the customer recognises (NLB, HSBC, …), not "UserCore".
     // An elderly customer mid-onboarding sees an English UserCore email and
     // dismisses it as phishing — branded subject + sender + body fixes that.
-    const session = await sessionsRepository.findById(data.workflowSessionId);
-    const workflow = session
-      ? await workflowsRepository.findById(session.workflowId)
-      : null;
+    // (session + workflow are already loaded above for the duplicate-email
+    // guard — reusing them here.)
     const branding = workflow?.branding ?? {};
     const brandName =
       branding.brandName?.trim() && branding.brandName.trim().length > 0

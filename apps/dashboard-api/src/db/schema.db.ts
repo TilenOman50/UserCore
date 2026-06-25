@@ -8,7 +8,11 @@ export const DashboardMemberSettingsTable = pgTable(
     id: text("id")
       .primaryKey()
       .$defaultFn(() => generateId("dashboardmember")),
-    memberId: text("member_id").notNull(),
+    // Unique because the dashboard upserts settings keyed by member id —
+    // every member has ONE settings row regardless of which workspace they
+    // last touched it from. Postgres needs the constraint to back the
+    // `onConflictDoUpdate({ target: memberId })` upsert.
+    memberId: text("member_id").notNull().unique(),
     workspaceId: text("workspace_id").notNull(),
     preferences: jsonb("preferences"),
     createdAt: timestamp("created_at").defaultNow().notNull(),

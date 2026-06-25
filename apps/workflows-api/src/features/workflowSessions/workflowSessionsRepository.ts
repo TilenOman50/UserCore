@@ -86,6 +86,70 @@ export const createWorkflowSessionsRepository = (props: {
     });
   };
 
+  // Find the most recent session in `workspaceId` whose verified-email
+  // attribute (case-insensitive match on `email_verification.email`) equals
+  // the given address. Powers the "is this email registered?" check the host
+  // site does before sending an OTP. Workspace-scoped via the workflow join.
+  const findRecentByVerifiedEmail = async (data: {
+    workspaceId: string;
+    email: string;
+  }) => {
+    const row = await db
+      .select({ session: WorkflowSessionTable })
+      .from(WorkflowSessionTable)
+      .innerJoin(
+        WorkflowTable,
+        eq(WorkflowTable.id, WorkflowSessionTable.workflowId),
+      )
+      .innerJoin(
+        WorkflowSessionAttributeTable,
+        eq(
+          WorkflowSessionAttributeTable.workflowSessionId,
+          WorkflowSessionTable.id,
+        ),
+      )
+      .where(
+        and(
+          eq(WorkflowTable.workspaceId, data.workspaceId),
+          isNull(WorkflowSessionTable.deletedAt),
+          eq(
+            WorkflowSessionAttributeTable.attribute,
+            "email_verification.email",
+          ),
+          sql`LOWER(${WorkflowSessionAttributeTable.value}) = LOWER(${data.email})`,
+        ),
+      )
+      .orderBy(desc(WorkflowSessionTable.createdAt))
+      .limit(1);
+    return row[0]?.session ?? null;
+  };
+
+  // Most recent session for `customerId` inside `workspaceId`. Powers the
+  // public `GET /customers/:customerId` endpoint — what a host calls to
+  // refresh the cached profile snapshot for one of its users.
+  const findRecentByCustomerId = async (data: {
+    workspaceId: string;
+    customerId: string;
+  }) => {
+    const row = await db
+      .select({ session: WorkflowSessionTable })
+      .from(WorkflowSessionTable)
+      .innerJoin(
+        WorkflowTable,
+        eq(WorkflowTable.id, WorkflowSessionTable.workflowId),
+      )
+      .where(
+        and(
+          eq(WorkflowTable.workspaceId, data.workspaceId),
+          eq(WorkflowSessionTable.customerId, data.customerId),
+          isNull(WorkflowSessionTable.deletedAt),
+        ),
+      )
+      .orderBy(desc(WorkflowSessionTable.createdAt))
+      .limit(1);
+    return row[0]?.session ?? null;
+  };
+
   const findByExternalSession = async (data: {
     externalSessionId: string;
     externalSessionSource: ExternalSessionSource;
@@ -506,6 +570,8 @@ export const createWorkflowSessionsRepository = (props: {
   return {
     create,
     findById,
+    findRecentByVerifiedEmail,
+    findRecentByCustomerId,
     findByExternalSession,
     listByCustomer,
     listByWorkspace,
