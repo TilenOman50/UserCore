@@ -63,6 +63,14 @@ export const createWorkflowsService = (props: {
       workspaceId: data.workspaceId,
       displayName: data.displayName,
     });
+    // Only one default per (workspace, type) — demote any current default so
+    // the unique partial index doesn't reject the new row.
+    if (data.isDefault) {
+      await workflowsRepository.clearDefaultsFor(
+        data.workspaceId,
+        data.type ?? "USER_KYC",
+      );
+    }
     return workflowsRepository.create(data);
   };
 
@@ -101,6 +109,18 @@ export const createWorkflowsService = (props: {
     }>,
   ) => {
     logger.info({ msg: "Updating workflow", workflowId: id });
+    // Promoting this workflow to default? Demote any current default for the
+    // same (workspace, type) first to avoid the unique-index conflict.
+    if (data.isDefault === true) {
+      const target = await workflowsRepository.findById(id);
+      if (target) {
+        await workflowsRepository.clearDefaultsFor(
+          target.workspaceId,
+          target.type,
+          id,
+        );
+      }
+    }
     return workflowsRepository.update(id, data);
   };
 

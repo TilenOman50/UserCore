@@ -40,6 +40,11 @@ export const createEmailVerificationRouter = (props: {
         },
         responses: {
           204: { description: "Sent" },
+          409: {
+            content: { "application/json": { schema: ErrorSchema } },
+            description:
+              "This email is already verified by another customer in the workspace",
+          },
           500: {
             content: { "application/json": { schema: ErrorSchema } },
             description: "Send failed",
@@ -57,6 +62,12 @@ export const createEmailVerificationRouter = (props: {
           });
           return c.body(null, 204);
         } catch (err) {
+          if (
+            err instanceof EmailVerificationError &&
+            err.code === "email_already_used"
+          ) {
+            return c.json({ error: err.message, code: err.code }, 409);
+          }
           return c.json(
             { error: err instanceof Error ? err.message : "Send failed" },
             500,

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNull, ne } from "drizzle-orm";
 
 import type { Logger } from "@usercore/logger";
 import type {
@@ -147,6 +147,28 @@ export const createWorkflowsRepository = (props: {
     return workflow;
   };
 
+  // Demote any other default workflow for the same (workspace, type) — used
+  // before promoting a new default so the unique partial index doesn't reject
+  // the write. `exceptId` skips the workflow about to be promoted (a no-op for
+  // create, the target id for update).
+  const clearDefaultsFor = async (
+    workspaceId: string,
+    type: WorkflowType,
+    exceptId?: string,
+  ) => {
+    const conds = [
+      eq(WorkflowTable.workspaceId, workspaceId),
+      eq(WorkflowTable.type, type),
+      eq(WorkflowTable.isDefault, true),
+      isNull(WorkflowTable.deletedAt),
+    ];
+    if (exceptId) conds.push(ne(WorkflowTable.id, exceptId));
+    await db
+      .update(WorkflowTable)
+      .set({ isDefault: false, updatedAt: new Date() })
+      .where(and(...conds));
+  };
+
   // Soft delete — sets deletedAt. The row stays so existing
   // workflow_session FKs continue to resolve and the audit trail is intact.
   const remove = async (id: string) => {
@@ -167,6 +189,7 @@ export const createWorkflowsRepository = (props: {
     findByWorkspacePaginated,
     update,
     updateValidity,
+    clearDefaultsFor,
     remove,
   };
 };

@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { ArrowLeft } from "lucide-react";
+
+import { USERCORE_LANDING_URL } from "@usercore/shared-types";
 
 import { authClient, signIn } from "../lib/authClient";
 
@@ -70,6 +73,15 @@ export const LoginPage = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      {/* Login-only escape hatch back to the marketing site — anyone who lands
+          here from the dashboard URL directly (or wants to re-read the
+          pricing/docs) shouldn't have to retype the address. */}
+      <a
+        href={USERCORE_LANDING_URL}
+        className="absolute top-6 left-6 inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-950 transition-colors"
+      >
+        <ArrowLeft size={14} /> Back to home page
+      </a>
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <div className="mx-auto w-16 h-16 bg-primary-200 rounded-2xl flex items-center justify-center mb-4">

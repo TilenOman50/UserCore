@@ -131,7 +131,7 @@ export const SuccessStep = ({
               type="button"
               onClick={save}
               disabled={saving || email.trim() === ""}
-              className="px-3 py-2 text-sm font-medium rounded-lg bg-primary-200 hover:bg-primary-300 text-primary-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg bg-primary-200 hover:bg-primary-300 text-primary-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? t("success.notifySaving") : t("success.notifyButton")}
             </button>

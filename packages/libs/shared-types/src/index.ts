@@ -16,6 +16,28 @@ export const generateId = (prefix: string): string => {
   return `${prefix}_${nanoid()}`;
 };
 
+// UserCore-hosted URLs that the customer's app embeds. In production these
+// would point at UserCore's public infrastructure (e.g.
+// `https://widget.usercore.app` + `https://api.usercore.app`); a customer
+// integrating UserCore would never need to override them — they'd just
+// paste a workspace API key into their env and ship.
+//
+// For the demo we point them at the same ngrok tunnels we use for
+// dashboard's "Test the flow". One place to update when the tunnel rotates.
+//
+// Note: dashboard + mock sites use these ONLY for the widget iframe URL +
+// the workflowsApi param the widget receives. Internal server-to-server
+// fetches (e.g. dashboard hitting workflows-api for its review queue) still
+// go to localhost for speed; only the phone needs the public URLs.
+export const USERCORE_WIDGET_URL = "https://7e4c-95-143-159-3.ngrok-free.app";
+export const USERCORE_WORKFLOWS_API_PUBLIC_URL =
+  "https://5b93-95-143-159-3.ngrok-free.app";
+
+// Public marketing site (where the dashboard's login page links back to).
+// In production this would be `https://usercore.app`; locally it's the
+// landing dev server on :3009.
+export const USERCORE_LANDING_URL = "http://localhost:3009";
+
 // KYC status enum
 export const KYC_STATUSES = [
   "not_started",

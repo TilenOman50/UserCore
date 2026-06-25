@@ -227,6 +227,7 @@ export const createWorkflowsApi = async (props: {
   const apiKeysRouter = createApiKeysRouter({ apiKeysService });
   const workflowSessionsRouter = createWorkflowSessionsRouter({
     workflowSessionsService,
+    workflowsService,
     apiKeysService,
   });
   const emailVerificationRouter = createEmailVerificationRouter({

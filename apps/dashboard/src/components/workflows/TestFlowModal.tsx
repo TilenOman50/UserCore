@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 
-import { getMobileUrls, WIDGET_URL, WORKFLOWS_API_URL } from "../../lib/api";
+import { WIDGET_IFRAME_URL, WIDGET_WORKFLOWS_API_URL } from "../../lib/api";
 
 type Props = {
   sessionId: string;
@@ -10,9 +10,10 @@ type Props = {
 // The widget iframe carries its own card chrome (header + close button +
 // in-flow device picker), so the dashboard just dims the backdrop and drops
 // the iframe in centered. Esc, backdrop click, and the widget's own X (via
-// postMessage) close it. After the user accepts Terms inside the widget, the
-// widget itself offers to hand off to a phone via QR — we pass the public
-// mobile URL through so it knows what to encode.
+// postMessage) close it. The widget self-derives the phone-handoff URL from
+// its own origin, so we just hand it the sessionId — same minimal integration
+// the demo sites (Alpska Banka, Workly) use, and the same shape we expect a
+// real customer's frontend to use in production.
 export const TestFlowModal = ({ sessionId, onClose }: Props) => {
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
@@ -38,18 +39,11 @@ export const TestFlowModal = ({ sessionId, onClose }: Props) => {
   }, [onClose]);
 
   const widgetSrc = useMemo(() => {
-    const mobile = getMobileUrls();
-    // `handoff=true` tells the widget it's the phone-side after a QR scan,
-    // so it writes a marker attribute the desktop widget polls for.
-    const phoneUrl = `${mobile.widgetUrl}/?session=${encodeURIComponent(sessionId)}&workflowsApi=${encodeURIComponent(mobile.workflowsApiUrl)}&handoff=true`;
-    const desktopParams = new URLSearchParams({
+    const params = new URLSearchParams({
       session: sessionId,
-      workflowsApi: WORKFLOWS_API_URL,
+      workflowsApi: WIDGET_WORKFLOWS_API_URL,
     });
-    if (!mobile.isLocalhost) {
-      desktopParams.set("mobileUrl", phoneUrl);
-    }
-    return `${WIDGET_URL}/?${desktopParams.toString()}`;
+    return `${WIDGET_IFRAME_URL}/?${params.toString()}`;
   }, [sessionId]);
 
   return (
