@@ -2,6 +2,7 @@ import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { and, count, eq } from "drizzle-orm";
 import { cors } from "hono/cors";
+import { HTTPException } from "hono/http-exception";
 import { requestId } from "hono/request-id";
 
 import type { Logger } from "@usercore/logger";
@@ -63,6 +64,13 @@ export const createAuthApi = (props: {
   });
 
   app.onError((err, c) => {
+    // HTTPException carries an explicit status (e.g. 409 for duplicate
+    // members, 403 for last-owner demotion) — let it through instead of
+    // flattening every error to 500.
+    if (err instanceof HTTPException) {
+      logger.warn({ msg: "HTTP exception", status: err.status, error: err });
+      return c.json({ error: err.message }, err.status);
+    }
     logger.error({ msg: "Unhandled error", error: err });
     return c.json({ error: err.message }, 500);
   });

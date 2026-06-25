@@ -22,7 +22,8 @@ export class EmailVerificationError extends Error {
       | "otp_expired"
       | "email_mismatch"
       | "code_mismatch"
-      | "email_already_used",
+      | "email_already_used"
+      | "session_not_found",
     message: string,
   ) {
     super(message);
@@ -52,17 +53,24 @@ export const createEmailVerificationService = (props: {
     email: string;
     locale: string | null;
   }) => {
+    // Session existence check — the OTP attributes have an FK to the session
+    // table, so calling sendCode against a phantom sessionId would surface
+    // as a 500 from the FK violation. Surface it as a clean 404 instead.
+    const session = await sessionsRepository.findById(data.workflowSessionId);
+    if (!session) {
+      throw new EmailVerificationError(
+        "session_not_found",
+        "Unknown workflow session.",
+      );
+    }
     // Duplicate-email guard: if another customer in this workspace already
     // verified this email, refuse a new OTP. The host's expected behaviour is
     // "this email is already registered — please log in instead", not
     // letting the same person create a second customer record under the
     // same address. Workspace-scoped, so the same email CAN exist across
     // different workspaces (Alpska + Workly = independent products).
-    const session = await sessionsRepository.findById(data.workflowSessionId);
-    const workflow = session
-      ? await workflowsRepository.findById(session.workflowId)
-      : null;
-    if (session && workflow) {
+    const workflow = await workflowsRepository.findById(session.workflowId);
+    if (workflow) {
       const existing = await sessionsRepository.findRecentByVerifiedEmail({
         workspaceId: workflow.workspaceId,
         email: data.email,

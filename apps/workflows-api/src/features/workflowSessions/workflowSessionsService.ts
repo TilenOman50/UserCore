@@ -208,6 +208,28 @@ export class ApiKeyWorkspaceMismatchError extends Error {
   }
 }
 
+// Thrown when a write request targets a session that's been archived (soft-
+// deleted). Archived sessions are immutable for retention/audit; the route
+// surfaces this as 410 Gone so the dashboard knows it's not "missing" — it
+// existed, but is no longer writable.
+export class SessionArchivedError extends Error {
+  readonly code = "session_archived" as const;
+  constructor(public readonly sessionId: string) {
+    super(`Session ${sessionId} is archived and cannot be modified`);
+    this.name = "SessionArchivedError";
+  }
+}
+
+// Thrown by route-callable service methods when their target session does not
+// exist. Lets routes surface 404 instead of silently returning null.
+export class SessionNotFoundError extends Error {
+  readonly code = "session_not_found" as const;
+  constructor(public readonly sessionId: string) {
+    super(`Session ${sessionId} does not exist`);
+    this.name = "SessionNotFoundError";
+  }
+}
+
 export const createWorkflowSessionsService = (props: {
   workflowSessionsRepository: WorkflowSessionsRepository;
   workflowSessionStepsRepository: WorkflowSessionStepsRepository;
@@ -1075,6 +1097,15 @@ export const createWorkflowSessionsService = (props: {
     clientIp?: string | null;
   }) => {
     const { clientIp, ...stepData } = data;
+    // Archived sessions are immutable — every retention/audit obligation
+    // assumes a deleted session never grows new step rows afterwards. Bail
+    // out before doing any work so the route can surface a clean 410.
+    const targetSession = await workflowSessionsRepository.findById(
+      data.sessionId,
+    );
+    if (targetSession?.deletedAt) {
+      throw new SessionArchivedError(data.sessionId);
+    }
     const row = await workflowSessionStepsRepository.upsert(stepData);
     // Identity-verification reaching REQUIRES_REVIEW is our "session
     // submitted by customer" signal — fan out any provider checks the
@@ -1179,8 +1210,15 @@ export const createWorkflowSessionsService = (props: {
         });
       });
     }
-    // A check failing on an already-approved customer (re-screen) demotes them.
-    if (CHECK_STEP_TYPES.includes(data.step) && data.status === "FAILED") {
+    // A check failing OR landing in REQUIRES_REVIEW on an already-approved
+    // customer (re-screen) demotes them. FAILED covers AML/fraud/rules; a
+    // REQUIRES_REVIEW status on a check step is what duplicate-detection uses
+    // when it finds a probable match that needs human eyes — same product
+    // semantics, identical adverse effect on the approved customer's status.
+    if (
+      CHECK_STEP_TYPES.includes(data.step) &&
+      (data.status === "FAILED" || data.status === "REQUIRES_REVIEW")
+    ) {
       await applyAdverseTransition(data.sessionId).catch(() => undefined);
     }
     return row;

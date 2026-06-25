@@ -8,6 +8,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "type-check": "tsc --noEmit",
+    "test": "TZ=UTC APP_ENV=local bun test test/",
     "db:migrate": "bun scripts/migrate.ts | pino-pretty",
     "db:seed-admin": "bun scripts/seed-admin.ts",
     "db:seed-test-users": "bun scripts/seed-test-users.ts | pino-pretty",
@@ -31,6 +32,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.3",
     "@types/nodemailer": "^8.0.0",
     "@types/pg": "^8.11.13",
     "@usercore/eslint-config": "workspace:*",

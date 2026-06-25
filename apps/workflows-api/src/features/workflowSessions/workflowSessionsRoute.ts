@@ -21,6 +21,7 @@ import {
   ApiKeyWorkspaceMismatchError,
   PlanLimitExceededError,
   SESSION_FILE_KINDS,
+  SessionArchivedError,
   type SessionFileKind,
   type WorkflowSessionsService,
 } from "./workflowSessionsService";
@@ -458,52 +459,9 @@ export const createWorkflowSessionsRouter = (props: {
       // What a host queries after the widget has run, to read back verified
       // identity facts (name, email, country, status, last-verified-at). All
       // workspace-scoped via Bearer API key. Same shape on both endpoints.
-      .openapi(
-        createRoute({
-          method: "get",
-          path: "/customers/:customerId",
-          tags: ["customers"],
-          request: { params: z.object({ customerId: z.string() }) },
-          responses: {
-            200: {
-              content: {
-                "application/json": { schema: CustomerSnapshotSchema },
-              },
-              description: "Customer found",
-            },
-            401: {
-              content: { "application/json": { schema: ErrorSchema } },
-              description: "Missing or invalid API key",
-            },
-            404: {
-              content: { "application/json": { schema: ErrorSchema } },
-              description: "No customer with that id in this workspace",
-            },
-          },
-        }),
-        async (c) => {
-          const auth = c.req.header("Authorization");
-          if (!auth?.startsWith("Bearer ")) {
-            return c.json({ error: "Missing API key" }, 401);
-          }
-          const key = await apiKeysService.verify(auth.slice(7));
-          if (!key) {
-            return c.json({ error: "Invalid or revoked API key" }, 401);
-          }
-          const { customerId } = c.req.valid("param");
-          const customer = await workflowSessionsService.findCustomerById({
-            workspaceId: key.workspaceId,
-            customerId,
-          });
-          if (!customer) {
-            return c.json(
-              { error: "No customer with that id in this workspace" },
-              404,
-            );
-          }
-          return c.json(customer, 200);
-        },
-      )
+      // `/customers/by-email` is registered BEFORE `/customers/:customerId`
+      // so the literal path wins over the param-route (Hono picks the first
+      // matching route and otherwise treats `by-email` as the customerId).
       .openapi(
         createRoute({
           method: "get",
@@ -545,6 +503,52 @@ export const createWorkflowSessionsRouter = (props: {
           if (!customer) {
             return c.json(
               { error: "No customer with that email in this workspace" },
+              404,
+            );
+          }
+          return c.json(customer, 200);
+        },
+      )
+      .openapi(
+        createRoute({
+          method: "get",
+          path: "/customers/:customerId",
+          tags: ["customers"],
+          request: { params: z.object({ customerId: z.string() }) },
+          responses: {
+            200: {
+              content: {
+                "application/json": { schema: CustomerSnapshotSchema },
+              },
+              description: "Customer found",
+            },
+            401: {
+              content: { "application/json": { schema: ErrorSchema } },
+              description: "Missing or invalid API key",
+            },
+            404: {
+              content: { "application/json": { schema: ErrorSchema } },
+              description: "No customer with that id in this workspace",
+            },
+          },
+        }),
+        async (c) => {
+          const auth = c.req.header("Authorization");
+          if (!auth?.startsWith("Bearer ")) {
+            return c.json({ error: "Missing API key" }, 401);
+          }
+          const key = await apiKeysService.verify(auth.slice(7));
+          if (!key) {
+            return c.json({ error: "Invalid or revoked API key" }, 401);
+          }
+          const { customerId } = c.req.valid("param");
+          const customer = await workflowSessionsService.findCustomerById({
+            workspaceId: key.workspaceId,
+            customerId,
+          });
+          if (!customer) {
+            return c.json(
+              { error: "No customer with that id in this workspace" },
               404,
             );
           }
@@ -723,6 +727,10 @@ export const createWorkflowSessionsRouter = (props: {
               content: { "application/json": { schema: SessionStepSchema } },
               description: "Upserted",
             },
+            410: {
+              content: { "application/json": { schema: ErrorSchema } },
+              description: "Session is archived — writes are not allowed.",
+            },
           },
         }),
         async (c) => {
@@ -738,12 +746,19 @@ export const createWorkflowSessionsRouter = (props: {
             forwardedFor?.split(",")[0]?.trim() ||
             c.req.header("x-real-ip") ||
             null;
-          const row = await workflowSessionsService.recordStepStatus({
-            sessionId: id,
-            ...body,
-            clientIp,
-          });
-          return c.json(serializeStep(row!), 200);
+          try {
+            const row = await workflowSessionsService.recordStepStatus({
+              sessionId: id,
+              ...body,
+              clientIp,
+            });
+            return c.json(serializeStep(row!), 200);
+          } catch (err) {
+            if (err instanceof SessionArchivedError) {
+              return c.json({ error: err.message }, 410);
+            }
+            throw err;
+          }
         },
       )
       .openapi(
@@ -892,18 +907,25 @@ export const createWorkflowSessionsRouter = (props: {
               },
               description: "Resubmission requested",
             },
+            404: {
+              content: { "application/json": { schema: ErrorSchema } },
+              description: "Session not found",
+            },
           },
         }),
         async (c) => {
           const { id } = c.req.valid("param");
           const body = c.req.valid("json");
-          await workflowSessionsService.requestResubmission({
+          const result = await workflowSessionsService.requestResubmission({
             workflowSessionId: id,
             steps: body.steps,
             note: body.note,
             reasonCodes: body.reasonCodes,
             reviewedBy: body.reviewedBy,
           });
+          if (!result) {
+            return c.json({ error: "Session not found" }, 404);
+          }
           return c.json({ ok: true }, 200);
         },
       )

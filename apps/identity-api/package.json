@@ -8,6 +8,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "type-check": "tsc --noEmit",
+    "test": "TZ=UTC APP_ENV=local bun test test/",
     "db:migrate": "bun scripts/migrate.ts | pino-pretty",
     "db:generate-migration": "bun --bun drizzle-kit generate",
     "db:studio": "bun --bun drizzle-kit studio --port 4003",
@@ -27,6 +28,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.3",
     "@types/pg": "^8.11.13",
     "@usercore/eslint-config": "workspace:*",
     "bun-types": "^1.2.0",
