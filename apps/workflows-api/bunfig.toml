@@ -1,2 +1,3 @@
 [test]
-preload = []
+# Per-test-suite isolation. PGLite is in-memory but a single bun process
+# would otherwise share module state across files — preload nothing global.

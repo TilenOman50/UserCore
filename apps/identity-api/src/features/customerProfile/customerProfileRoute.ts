@@ -123,12 +123,35 @@ export const createCustomerProfileRouter = (props: {
             },
             description: "Created",
           },
+          409: {
+            content: {
+              "application/json": { schema: z.object({ error: z.string() }) },
+            },
+            description: "A profile already exists for this customerId",
+          },
         },
       }),
       async (c) => {
         const body = c.req.valid("json");
-        const profile = await customerProfileService.createProfile(body);
-        return c.json(serializeProfile(profile!), 201);
+        try {
+          const profile = await customerProfileService.createProfile(body);
+          return c.json(serializeProfile(profile!), 201);
+        } catch (err) {
+          // Postgres unique-constraint violation on customer_id surfaces as
+          // SQLSTATE 23505; pglite mirrors that. Translate to a 409 instead
+          // of letting it bubble up as 500 — duplicate is a normal caller
+          // error, not an internal one.
+          const code = (err as { code?: string } | null)?.code;
+          if (code === "23505") {
+            return c.json(
+              {
+                error: "A profile for this customerId already exists.",
+              },
+              409,
+            );
+          }
+          throw err;
+        }
       },
     )
     .openapi(

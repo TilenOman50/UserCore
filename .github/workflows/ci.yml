@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   checks:
-    name: Lint, type-check, prettier, build
+    name: Lint, type-check, prettier, build, test
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -29,6 +29,13 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
+
+      # Tests run on Bun's native test runner. PGLite (in-memory Postgres)
+      # means no service containers — the whole integration suite runs
+      # inside the test process with the real schema + real migrations.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -47,3 +54,7 @@ jobs:
       - name: Build
         if: always()
         run: pnpm build
+
+      - name: Test
+        if: always()
+        run: pnpm test

@@ -40,6 +40,10 @@ export const createEmailVerificationRouter = (props: {
         },
         responses: {
           204: { description: "Sent" },
+          404: {
+            content: { "application/json": { schema: ErrorSchema } },
+            description: "Workflow session not found",
+          },
           409: {
             content: { "application/json": { schema: ErrorSchema } },
             description:
@@ -62,11 +66,13 @@ export const createEmailVerificationRouter = (props: {
           });
           return c.body(null, 204);
         } catch (err) {
-          if (
-            err instanceof EmailVerificationError &&
-            err.code === "email_already_used"
-          ) {
-            return c.json({ error: err.message, code: err.code }, 409);
+          if (err instanceof EmailVerificationError) {
+            if (err.code === "session_not_found") {
+              return c.json({ error: err.message, code: err.code }, 404);
+            }
+            if (err.code === "email_already_used") {
+              return c.json({ error: err.message, code: err.code }, 409);
+            }
           }
           return c.json(
             { error: err instanceof Error ? err.message : "Send failed" },

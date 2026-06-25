@@ -20,7 +20,7 @@ import { createDuplicateDetectionRouter } from "./features/duplicateDetection/du
 import { createDuplicateDetectionService } from "./features/duplicateDetection/duplicateDetectionService";
 import { createEmailVerificationRouter } from "./features/emailVerification/emailVerificationRoute";
 import { createEmailVerificationService } from "./features/emailVerification/emailVerificationService";
-import { createMailer } from "./features/emailVerification/mailer";
+import { createMailer, type Mailer } from "./features/emailVerification/mailer";
 import { createFraudDetectionRepository } from "./features/fraudDetection/fraudDetectionRepository";
 import { createFraudDetectionRouter } from "./features/fraudDetection/fraudDetectionRoute";
 import { createFraudDetectionService } from "./features/fraudDetection/fraudDetectionService";
@@ -50,7 +50,10 @@ import { createWorkflowSessionsRouter } from "./features/workflowSessions/workfl
 import { createWorkflowSessionsService } from "./features/workflowSessions/workflowSessionsService";
 import { createWorkflowSessionStepsRepository } from "./features/workflowSessions/workflowSessionStepsRepository";
 import { createWorkflowStepsRepository } from "./features/workflowSteps/workflowStepsRepository";
-import { createStorageService } from "./storage/storageService";
+import {
+  createStorageService,
+  type StorageService,
+} from "./storage/storageService";
 import type { ContextVariables } from "./types";
 
 const BASE_PATH = "/workflows";
@@ -59,10 +62,15 @@ export const createWorkflowsApi = async (props: {
   db: Database;
   logger: Logger;
   rabbitMQ: RabbitMQClient;
+  // Optional overrides — tests inject a fake mailer to assert send calls and
+  // a no-op storage service so branding-logo routes don't reach MinIO.
+  mailer?: Mailer;
+  storageService?: StorageService;
 }) => {
   const { db, logger, rabbitMQ } = props;
 
-  const storageService = createStorageService({ logger });
+  const storageService =
+    props.storageService ?? createStorageService({ logger });
 
   // Repositories
   const workflowsRepository = createWorkflowsRepository({ db, logger });
@@ -156,7 +164,7 @@ export const createWorkflowsApi = async (props: {
     authApiUrl: env.AUTH_API_URL,
     logger,
   });
-  const mailer = createMailer({ logger });
+  const mailer = props.mailer ?? createMailer({ logger });
   const workflowSessionsService = createWorkflowSessionsService({
     workflowSessionsRepository,
     workflowSessionStepsRepository,
