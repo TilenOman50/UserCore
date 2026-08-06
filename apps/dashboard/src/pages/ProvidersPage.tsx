@@ -28,8 +28,7 @@ type ProviderMeta = {
   // bringing their own contract with the actual vendor).
   name: string;
   // UserCore-branded display name used on the managed card so the operator
-  // sees "UserCore Identity" rather than the raw vendor — same convention as
-  // the platform's `integrated*` naming.
+  // sees "UserCore Identity" rather than the raw vendor.
   managedName: string;
   category: string;
   description: string;
@@ -198,8 +197,7 @@ const ProviderAvatar = ({
   alt: string;
   // Optional vendor mark overlaid on the main avatar as a small circular
   // badge — used on the managed cards to point at the underlying provider
-  // ("UserCore Identity, powered by iDenfy"). Matches the same pattern
-  // the platform uses on its integrated-provider cards.
+  // ("UserCore Identity, powered by iDenfy").
   poweredByIconUrl?: string;
   poweredByAlt?: string;
 }) => {

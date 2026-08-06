@@ -1,7 +1,7 @@
 // Test harness: boots workflows-api in-process against an in-memory PGLite
 // database, with a fake RabbitMQ client and a stubbed plan client (no
-// auth-api round-trip). Mirrors the platform's approach — `createWorkflowsApi`
-// is the same factory production uses, just fed test-grade dependencies.
+// auth-api round-trip). `createWorkflowsApi` is the same factory production
+// uses, just fed test-grade dependencies.
 //
 // We instantiate PGLite + the drizzle wrapper directly here (instead of via
 // createDB) so the test can `close()` the pglite worker pool on cleanup.

@@ -90,8 +90,7 @@ export const createScenarioService = (props: {
   // enabled actions so the caller (workflows-api) can derive a verdict, and
   // still publishes SCENARIO_TRIGGERED events for any downstream consumers.
   // Flatten a scenario's condition tree into a per-condition pass/fail list so
-  // the reviewer can see WHY a scenario did or didn't match (the platform's
-  // activity-log style).
+  // the reviewer can see WHY a scenario did or didn't match.
   const flattenConditions = (
     group: ScenarioEvaluation,
     data: CustomerData,

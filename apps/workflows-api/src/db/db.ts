@@ -19,7 +19,7 @@ import * as schema from "./schema";
 // Two drivers: real Postgres for dev + prod, in-memory PGLite for the
 // integration test suite. Tests run against the exact same schema and
 // migrations as production — no mocked db layer — but in a fresh in-memory
-// instance per file. Mirrors the platform's createDB({ type: "pg-lite" }) pattern.
+// instance per file.
 export const createDB = (props: { logger: Logger; type?: "pg-lite" }) => {
   if (props.type === "pg-lite") {
     const client = new PGlite();

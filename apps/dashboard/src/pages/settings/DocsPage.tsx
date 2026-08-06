@@ -14,8 +14,7 @@ import {
 // In-app documentation. Lives at /settings/docs and is rendered exactly
 // like the rest of the Settings area (single scrolling page, p-8 wrapper,
 // text-2xl page heading). Content is grouped under four tabs — Getting
-// started, API reference, Webhooks, Recipes — same in-app + tabbed
-// pattern the platform uses for its Formulas reference.
+// started, API reference, Webhooks, Recipes.
 
 type Tab = "start" | "api" | "webhooks" | "recipes";
 

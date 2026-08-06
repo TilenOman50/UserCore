@@ -11,7 +11,7 @@ export {
   ISO2_TO_ISO3,
 } from "./countries.js";
 
-// ID generation — mirrors the platform's generateId pattern
+// ID generation
 export const generateId = (prefix: string): string => {
   return `${prefix}_${nanoid()}`;
 };

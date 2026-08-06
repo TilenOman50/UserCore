@@ -377,7 +377,7 @@ const ColumnsMenu = ({ table }: { table: TableInstance<Customer> }) => {
   );
 };
 
-// Optional filters the member adds on demand (the platform-style "+ Filter"),
+// Optional filters the member adds on demand via "+ Filter",
 // instead of a permanent row of dropdowns.
 const ADD_FILTERS = [
   { key: "risk", label: "Risk level" },
@@ -407,7 +407,7 @@ const PopoverHeader = ({
 );
 
 // "+ Filter" with a two-level popover: pick a field, then a value page inside
-// the same window (the platform-style), which applies the filter on selection.
+// the same window, which applies the filter on selection.
 const FilterPopover = ({
   available,
   countryOptions,
