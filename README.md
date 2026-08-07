@@ -15,7 +15,9 @@ Built end to end as a diploma project: seven backend services, an admin dashboar
 
 ## Architecture
 
-Turborepo monorepo. Services communicate over REST and RabbitMQ events, each owning its own PostgreSQL schema.
+![UserCore architecture](docs/architecture.png)
+
+Turborepo monorepo. Services communicate over REST and RabbitMQ events. Each service owns its own PostgreSQL database, except `providers-api`, which is stateless. Uploaded documents go to MinIO.
 
 | Service | Responsibility |
 |---|---|
@@ -39,7 +41,7 @@ Both demo apps run against the same backend, showing multi-tenant use from two d
 
 ## Stack
 
-TypeScript · Bun · Hono · PostgreSQL with Drizzle ORM · RabbitMQ · React · Vite · Tailwind CSS · Zod · OpenAPI
+TypeScript · Bun · Hono · PostgreSQL with Drizzle ORM · RabbitMQ · MinIO · React · Vite · Tailwind CSS · Zod · OpenAPI
 
 ## Testing
 
